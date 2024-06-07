@@ -1,0 +1,6 @@
+query MetricTypeByOrganizationId($organizationId: uuid = "") {
+    metricType(where: {organizationId: {_eq: $organizationId}, deletedAt: {_is_null: true}}) {
+        id
+        name
+    }
+}
