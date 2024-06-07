@@ -1,4 +1,8 @@
-mutation createMetric($input: SaveMetricInput = {details: {field: "", timeZone: "", timestamp: ""}}) {
+mutation saveMetric(
+  $input: SaveMetricInput = {
+    details: { field: "", timeZone: "", timestamp: "" }
+  }
+) {
   jobdoneCustom1 {
     saveMetric(input: $input)
   }

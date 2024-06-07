@@ -1,0 +1,32 @@
+mutation createMetricType(
+  $input: CreateMetricTypeInput = {
+    colorCode: ""
+    displayDecimals: 10
+    displayUnit: ""
+    granularity: ""
+    icon: ""
+    isActualEditable: false
+    isBudgetEditable: false
+    isForecastedEditable: false
+    isScheduledEditable: false
+    name: ""
+    targetOrBudgetType: ""
+  }
+) {
+  jobdoneCustom1 {
+    createMetricType(input: $input) {
+      colorCode
+      displayDecimals
+      displayUnit
+      granularity
+      icon
+      id
+      isActualEditable
+      isBudgetEditable
+      isForecastedEditable
+      isScheduledEditable
+      name
+      targetOrBudgetType
+    }
+  }
+}
