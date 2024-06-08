@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "bun run ./src/index.ts",
-    "codegen": "graphql-codegen --config codegen.ts"
+    "generate-types": "graphql-codegen --config codegen.ts"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^5.0.2",

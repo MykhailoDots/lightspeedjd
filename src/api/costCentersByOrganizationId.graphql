@@ -1,4 +1,4 @@
-query CostCenterByOrganizationId($organizationId: uuid = "") {
+query CostCentersByOrganizationId($organizationId: uuid = "") {
     costCenter(where: {organizationId: {_eq: $organizationId}, deletedAt: {_is_null: true}, status: {_eq: "ACTIVE"}}) {
         id
         name

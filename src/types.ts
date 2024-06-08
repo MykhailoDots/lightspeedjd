@@ -9,9 +9,20 @@ export interface MetricCSVImport {
 
 export interface GroupedMetric {
     date: string;
-    costCenter: string;
-    metricType: string;
+    costCenterName: string;
+    metricTypeName: string;
+    targetField: string;
     value: number;
+}
+
+export interface BaseCostCenter {
+    id: string;
+    name: string;
+}
+
+export interface BaseMetricType {
+    id: string;
+    name: string;
 }
 
 export interface Metric {

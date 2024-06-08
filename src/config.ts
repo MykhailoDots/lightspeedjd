@@ -1,3 +1,10 @@
+function getEnvVar(name: string): string {
+    const value = process.env[name];
+    if (!value) {
+        throw new Error(`Environment variable ${name} is not defined`);
+    }
+    return value;
+}
 
 export const appConfig = {
     importer: {
@@ -9,55 +16,86 @@ export const appConfig = {
         filePath: './JD_Umsatz_2021.csv',
         timeZone: 'Europe/Zurich',
         autoCreateMetricType: false,
-        mergeMetricTypes: {
-            enabled: true,
-            name: 'Umsatz',
-        },
-        columns: [
+        importColumns: [
             'date',
             'costCenter',
             'metricType',
             'value',
         ],
-        costCenterMatchField: 'name',
-        // metric mapping set
-        metricTypeMapping: {
-            'Verkauf Bier': 'Bier',
-            'Verkauf Kaffee/Tee/Ovo': 'Kaffee/Tee/Ovo',
-            'Verkauf Küche': 'Küche',
-            'Verkauf Mineralwasser': 'Mineralwasser',
-            'Verkauf Pizza': 'Pizza',
-            'Verkauf Spirituosen/Liq.': 'Spirituosen/Liq.',
-            'Verkauf Vinoteca': 'Vinoteca',
-            'Verkauf Weine': 'Weine',
-        }
+        mergeMetricTypes: {
+            enabled: true,
+            name: 'Umsatz',
+            targetField: "actual",
+        },
+        metricTypeMappings: [
+            {
+                importName: 'Verkauf Bier',
+                jobdoneName: 'Bier',
+                targetField: 'actual',
+            },
+            {
+                importName: 'Verkauf Kaffee/Tee/Ovo',
+                jobdoneName: 'Kaffee/Tee/Ovo',
+                targetField: 'actual',
+            },
+            {
+                importName: 'Verkauf Küche',
+                jobdoneName: 'Küche',
+                targetField: 'actual',
+            },
+            {
+                importName: 'Verkauf Mineralwasser',
+                jobdoneName: 'Mineralwasser',
+                targetField: 'actual',
+            },
+            {
+                importName: 'Verkauf Pizza',
+                jobdoneName: 'Pizza',
+                targetField: 'actual',
+            },
+            {
+                importName: 'Verkauf Spirituosen/Liq.',
+                jobdoneName: 'Spirituosen/Liq.',
+                targetField: 'actual',
+            },
+            {
+                importName: 'Verkauf Vinoteca',
+                jobdoneName: 'Vinoteca',
+                targetField: 'actual',
+            },
+            {
+                importName: 'Verkauf Weine',
+                jobdoneName: 'Weine',
+                targetField: 'actual',
+            },
+        ]
     },
-    webhookUrl: process.env.DISCORD_WEBHOOK_URL,
+    webhookUrl: getEnvVar('DISCORD_WEBHOOK_URL'),
     jobdone: {
         organization: {
-            id: process.env.JOBDONE_ORGANIZATION_ID,
-            name: process.env.JOBDONE_ORGANIZATION_NAME,
+            id: getEnvVar('JOBDONE_ORGANIZATION_ID'),
+            name: getEnvVar('JOBDONE_ORGANIZATION_NAME'),
         },
         organizationUser: {
-            id: process.env.JOBDONE_ORGANIZATION_USER_ID,
+            id: getEnvVar('JOBDONE_ORGANIZATION_USER_ID'),
         },
         auth: {
-            username: process.env.JOBDONE_USERNAME,
-            password: process.env.JOBDONE_PASSWORD,
-            authRegion: process.env.JOBDONE_AUTH_REGION,
-            userPoolId: process.env.JOBDONE_USER_POOL_ID,
-            userPoolWebClientId: process.env.JOBDONE_USER_POOL_WEB_CLIENT_ID,
-            bearerToken: process.env.JOBDONE_BEARER_TOKEN,
-            accessKey: process.env.JOBDONE_ACCESS_KEY,
-            rawSecret: process.env.JOBDONE_RAW_SECRET,
+            username: getEnvVar('JOBDONE_USERNAME'),
+            password: getEnvVar('JOBDONE_PASSWORD'),
+            authRegion: getEnvVar('JOBDONE_AUTH_REGION'),
+            userPoolId: getEnvVar('JOBDONE_USER_POOL_ID'),
+            userPoolWebClientId: getEnvVar('JOBDONE_USER_POOL_WEB_CLIENT_ID'),
+            bearerToken: getEnvVar('JOBDONE_BEARER_TOKEN'),
+            accessKey: getEnvVar('JOBDONE_ACCESS_KEY'),
+            rawSecret: getEnvVar('JOBDONE_RAW_SECRET'),
         },
         graphql: {
-            endpoint: process.env.JOBDONE_GRAPHQL_ENDPOINT,
-            adminSecret: process.env.JOBDONE_GRAPHQL_ADMIN_SECRET,
+            endpoint: getEnvVar('JOBDONE_GRAPHQL_ENDPOINT'),
+            adminSecret: getEnvVar('JOBDONE_GRAPHQL_ADMIN_SECRET'),
         },
         client: {
-            id: process.env.JOBDONE_CLIENT_ID,
-            name: process.env.JOBDONE_CLIENT_NAME,
+            id: getEnvVar('JOBDONE_CLIENT_ID'),
+            name: getEnvVar('JOBDONE_CLIENT_NAME'),
         }
     },
 } as const;

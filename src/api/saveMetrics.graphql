@@ -1,4 +1,4 @@
-mutation saveMetric(
+mutation saveMetrics(
   $input: SaveMetricInput = {
     details: { field: "", timeZone: "", timestamp: "" }
   }
