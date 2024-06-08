@@ -10,7 +10,7 @@ import type {
   MetricTypesByOrganizationIdQuery,
   SaveMetricDetailsInput,
 } from "./graphql/generated/graphql.ts";
-import { checkDiskUsage } from "./helper/diskUsage.ts";
+// import { checkDiskUsage } from "./helper/diskUsage.ts";
 import { sendMessageToDiscord } from "./helper/discord.ts";
 
 export interface MetricCSVImport {
@@ -34,7 +34,7 @@ const parseCsv = async (fileName: string): Promise<MetricCSVImport[]> => {
 const start = async () => {
   logger.info(`Starting Metric Importer)...`);
 
-  await checkDiskUsage();
+  // await checkDiskUsage(); // Lucky: Does not work with Bun
 
   const metricsToImport: MetricCSVImport[] = await parseCsv(
     appConfig.app.filePath

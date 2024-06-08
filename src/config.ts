@@ -12,9 +12,9 @@ export const appConfig = {
       // every 15min
       schedule: "*/15 * * * *",
     },
-    isDryRun: false,
+    isDryRun: true,
     diskFreeSpaceThresholdInPercent: 20,
-    filePath: "./JD_Umsatz_2021.csv",
+    filePath: "./JD_Umsatz_Gastro.csv",
     timeZone: "Europe/Zurich",
     autoCreateMetricType: false,
     importColumns: ["date", "costCenter", "metricType", "value"],

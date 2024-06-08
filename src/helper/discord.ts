@@ -21,8 +21,8 @@ export async function sendMessageToDiscord(
     includeClientName = true,
   } = options;
 
-  if (!appConfig.webhookUrl) {
-    console.error(
+  if (!appConfig.environment.discord.webhookUrl) {
+    logger.error(
       "Webhook URL is not defined. Please set the webhookUrl variable."
     );
     return;
