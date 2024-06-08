@@ -1,22 +1,30 @@
 import { parse } from "csv-parse/sync";
-import type { GroupedMetric, MetricCSVImport } from "./types.ts";
 import { appConfig } from "./config.ts";
 import fs from "fs";
 import { CronJob } from "cron";
 import logger from "./helper/logger.ts";
 import { getCostCenters, getMetricTypes } from "./util.ts";
-import dayjs from "./customDayJs.ts";
+import dayjs from "./helper/customDayJs.ts";
 import type {
   CostCentersByOrganizationIdQuery,
   MetricTypesByOrganizationIdQuery,
   SaveMetricDetailsInput,
 } from "./graphql/generated/graphql.ts";
+import { checkDiskUsage } from "./helper/diskUsage.ts";
+import { sendMessageToDiscord } from "./helper/discord.ts";
+
+export interface MetricCSVImport {
+  date: string;
+  costCenter: string;
+  metricType: string;
+  value: string;
+}
 
 const parseCsv = async (fileName: string): Promise<MetricCSVImport[]> => {
   // read csv file
   const csv = fs.readFileSync(fileName, "utf8");
   const parsedCsv = parse(csv, {
-    columns: [...appConfig.importer.importColumns],
+    columns: [...appConfig.app.importColumns],
     skip_empty_lines: true,
   });
 
@@ -24,16 +32,24 @@ const parseCsv = async (fileName: string): Promise<MetricCSVImport[]> => {
 };
 
 const start = async () => {
+  logger.info(`Starting Metric Importer)...`);
+
+  await checkDiskUsage();
+
   const metricsToImport: MetricCSVImport[] = await parseCsv(
-    appConfig.importer.filePath
+    appConfig.app.filePath
   );
 
   const existingCostCenters: CostCentersByOrganizationIdQuery =
-    await getCostCenters({ organizationId: appConfig.jobdone.organization.id });
+    await getCostCenters({
+      organizationId: appConfig.environment.organization.id,
+    });
   const existingMetricTypes: MetricTypesByOrganizationIdQuery =
-    await getMetricTypes({ organizationId: appConfig.jobdone.organization.id });
+    await getMetricTypes({
+      organizationId: appConfig.environment.organization.id,
+    });
 
-  const metricTypeMappings = appConfig.importer.metricTypeMappings;
+  const metricTypeMappings = appConfig.app.metricTypeMappings;
 
   const renamedExistingMetricTypes = existingMetricTypes.metricType.map((c) => {
     const metricTypeMapping = metricTypeMappings.find(
@@ -63,37 +79,52 @@ const start = async () => {
     metricTypeMappingsByNameMap.set(m.importName, m.jobdoneName);
   });
 
-  const costCentersToImport = new Set(metricsToImport.map((m) => m.costCenter));
-  const metricTypesToImport = new Set(metricsToImport.map((m) => m.metricType));
-
-  // check by name
-  const notExistingCostCenters = Array.from(costCentersToImport).filter(
-    (c) => !existingCostCenters.costCenter.some((cc) => cc.name === c)
+  const costCenterNamesToImport = new Set(
+    metricsToImport.map((m) => m.costCenter)
+  );
+  const metricTypeNamesToImport = new Set(
+    metricsToImport.map((m) => m.metricType)
   );
 
-  const notExistingMetricTypes = Array.from(metricTypesToImport).filter(
+  // check by name
+  const notExistingCostCenterNames = Array.from(costCenterNamesToImport).filter(
+    (c) => !existingCostCenters.costCenter.some((cc) => cc.name === c)
+  );
+  const notExistingMetricTypeNames = Array.from(metricTypeNamesToImport).filter(
     (m) => !existingMetricTypes.metricType.some((mt) => mt.name === m)
   );
 
-  if (notExistingCostCenters.length > 0) {
-    logger.error(
-      `Cost centers do not exist: ${notExistingCostCenters.join(", ")}`
-    );
+  if (notExistingCostCenterNames.length > 0) {
+    const message = `Cost center names not found in JobDone: ${notExistingCostCenterNames.join(
+      ", "
+    )}`;
+    logger.error(message);
+    await sendMessageToDiscord({ message });
     return;
   }
 
-  if (notExistingMetricTypes.length > 0) {
-    logger.error(
-      `Metric types do not exist: ${notExistingMetricTypes.join(", ")}`
-    );
+  if (notExistingMetricTypeNames.length > 0) {
+    const message = `Metric type names not found in JobDone: ${notExistingMetricTypeNames.join(
+      ", "
+    )}`;
+    logger.error(message);
+    await sendMessageToDiscord({ message });
     return;
   }
 
-  if (appConfig.importer.mergeMetricTypes.enabled) {
-    const metricType = appConfig.importer.mergeMetricTypes.name;
-    if (!existingMetricTypes.metricType.some((mt) => mt.name === metricType)) {
-      logger.error(`Merge Metric type does not exist: ${metricType}`);
-      return;
+  if (appConfig.app.mergeMetricTypes.enabled) {
+    const mergeMetricTypeName = appConfig.app.mergeMetricTypes.name;
+    if (
+      !existingMetricTypes.metricType.some(
+        (mt) => mt.name === mergeMetricTypeName
+      )
+    ) {
+      logger.error(
+        `Merge Metric types is enabled and does not exist in JobDone: ${mergeMetricTypeName}`
+      );
+      throw new Error(
+        `Merge Metric types is enabled and does not exist in JobDone: ${mergeMetricTypeName}`
+      );
     }
   }
 
@@ -140,16 +171,13 @@ const start = async () => {
       metricTypeId,
       field: metricTypeMapping.targetField,
       description: null,
-      timeZone: appConfig.importer.timeZone,
-      timestamp: dayjs
-        .tz(m.date, appConfig.importer.timeZone)
-        .utc()
-        .toISOString(),
+      timeZone: appConfig.app.timeZone,
+      timestamp: dayjs.tz(m.date, appConfig.app.timeZone).utc().toISOString(),
       value: parseFloat(m.value),
     });
   });
 
-  if (appConfig.importer.isDryRun) {
+  if (appConfig.app.isDryRun) {
     logger.info("Dry run enabled, not saving metrics...");
     logger.info("Metrics to import:", formattedMetricsToImport);
     logger.info("Metrics unable to import:", metricsUnableToImport);
@@ -158,7 +186,7 @@ const start = async () => {
 };
 
 CronJob.from({
-  cronTime: appConfig.importer.cron.schedule,
+  cronTime: appConfig.app.cron.schedule,
   onTick: async () => {
     try {
       await start();
