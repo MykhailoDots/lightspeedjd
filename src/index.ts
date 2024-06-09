@@ -189,12 +189,17 @@ const start = async () => {
     formattedMetricsToImport.push({
       costCenterId,
       metricTypeId,
-      field: appConfig.app.mergeMetricTypes.enabled ? appConfig.app.mergeMetricTypes.targetField : metricTypeMapping.targetField,
+      field: appConfig.app.mergeMetricTypes.enabled
+        ? appConfig.app.mergeMetricTypes.targetField
+        : metricTypeMapping.targetField,
       description: null,
       timeZone: appConfig.app.timeZone,
-      timestamp: dayjs.tz(m.date, 'DD.MM.YYYY', appConfig.app.timeZone).utc().toISOString(),
+      timestamp: dayjs
+        .tz(m.date, "DD.MM.YYYY", appConfig.app.timeZone)
+        .utc()
+        .toISOString(),
       value: parseFloat(parseFloat(m.value).toFixed(2)),
-    });    
+    });
   });
 
   // if appConfig.app.mergeMetricTypes.enabled is enabled, sum the value of metrics that have the same timestamp, costCenterId, and metricTypeId
@@ -206,12 +211,14 @@ const start = async () => {
         mergedMetrics.set(key, { ...metric, value: 0 });
       }
       mergedMetrics.get(key).value += metric.value;
-      mergedMetrics.get(key).value = parseFloat(mergedMetrics.get(key).value.toFixed(2));
+      mergedMetrics.get(key).value = parseFloat(
+        mergedMetrics.get(key).value.toFixed(2)
+      );
     });
     formattedMetricsToImport.length = 0;
     formattedMetricsToImport.push(...Array.from(mergedMetrics.values()));
   }
-  
+
   // order by timestamp
   formattedMetricsToImport.sort((a, b) => {
     return dayjs(a.timestamp).isAfter(dayjs(b.timestamp)) ? 1 : -1;
@@ -228,7 +235,7 @@ const start = async () => {
   logger.info(
     "Metrics unable to import:",
     JSON.stringify(metricsUnableToImport, null, 2)
-    );
+  );
   console.table(metricsUnableToImport);
 
   if (appConfig.app.isDryRun) {
@@ -239,7 +246,7 @@ const start = async () => {
     const batchSize = 100;
 
     for (let i = 0; i < formattedMetricsToImport.length; i += batchSize) {
-      logger.info(`Saving metrics: ${i} to ${i + batchSize}`)
+      logger.info(`Saving metrics: ${i} to ${i + batchSize}`);
       const batch = formattedMetricsToImport.slice(i, i + batchSize);
       await UpsertMetrics({
         input: {
@@ -256,8 +263,10 @@ CronJob.from({
     try {
       await start();
     } catch (e) {
-      console.log(e)
-      logger.error(`Metric Importer crashed, Error: ${JSON.stringify(e, null, 2)}`);
+      console.log(e);
+      logger.error(
+        `Metric Importer crashed, Error: ${JSON.stringify(e, null, 2)}`
+      );
     }
   },
   start: true,
