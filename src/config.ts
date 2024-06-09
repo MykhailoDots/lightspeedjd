@@ -12,7 +12,7 @@ export const appConfig = {
       // every 15min
       schedule: "*/15 * * * *",
     },
-    isDryRun: true,
+    isDryRun: false,
     diskFreeSpaceThresholdInPercent: 20,
     filePath: "./JD_Umsatz_Gastro.csv",
     timeZone: "Europe/Zurich",

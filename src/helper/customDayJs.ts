@@ -10,6 +10,7 @@ import weekday from "dayjs/plugin/weekday";
 import isLeapYear from "dayjs/plugin/isLeapYear";
 import calendar from "dayjs/plugin/calendar";
 import dayOfYear from "dayjs/plugin/dayOfYear";
+import customParseFormat from "dayjs/plugin/customParseFormat";
 
 dayjs.extend(utc);
 dayjs.extend(dayJsTimezone);
@@ -22,5 +23,6 @@ dayjs.extend(weekday);
 dayjs.extend(isLeapYear);
 dayjs.extend(calendar);
 dayjs.extend(dayOfYear);
+dayjs.extend(customParseFormat);
 
 export default dayjs;

@@ -3,7 +3,7 @@ import { appConfig } from "./config.ts";
 import fs from "fs";
 import { CronJob } from "cron";
 import logger from "./helper/logger.ts";
-import { getCostCenters, getMetricTypes } from "./util.ts";
+import { UpsertMetrics, getCostCenters, getMetricTypes } from "./util.ts";
 import dayjs from "./helper/customDayJs.ts";
 import type {
   CostCentersByOrganizationIdQuery,
@@ -28,7 +28,7 @@ const parseCsv = async (fileName: string): Promise<MetricCSVImport[]> => {
     skip_empty_lines: true,
   });
 
-  console.table(parsedCsv);
+  // console.table(parsedCsv);
 
   return parsedCsv;
 };
@@ -189,14 +189,32 @@ const start = async () => {
     formattedMetricsToImport.push({
       costCenterId,
       metricTypeId,
-      field: appConfig.app.mergeMetricTypes.enabled ?
-        appConfig.app.mergeMetricTypes.targetField :
-        metricTypeMapping.targetField,
+      field: appConfig.app.mergeMetricTypes.enabled ? appConfig.app.mergeMetricTypes.targetField : metricTypeMapping.targetField,
       description: null,
       timeZone: appConfig.app.timeZone,
-      timestamp: dayjs.tz(m.date, appConfig.app.timeZone).utc().toISOString(),
-      value: parseFloat(m.value),
+      timestamp: dayjs.tz(m.date, 'DD.MM.YYYY', appConfig.app.timeZone).utc().toISOString(),
+      value: parseFloat(parseFloat(m.value).toFixed(2)),
+    });    
+  });
+
+  // if appConfig.app.mergeMetricTypes.enabled is enabled, sum the value of metrics that have the same timestamp, costCenterId, and metricTypeId
+  if (appConfig.app.mergeMetricTypes.enabled) {
+    const mergedMetrics = new Map();
+    formattedMetricsToImport.forEach((metric) => {
+      const key = `${metric.timestamp}-${metric.costCenterId}-${metric.metricTypeId}`;
+      if (!mergedMetrics.has(key)) {
+        mergedMetrics.set(key, { ...metric, value: 0 });
+      }
+      mergedMetrics.get(key).value += metric.value;
+      mergedMetrics.get(key).value = parseFloat(mergedMetrics.get(key).value.toFixed(2));
     });
+    formattedMetricsToImport.length = 0;
+    formattedMetricsToImport.push(...Array.from(mergedMetrics.values()));
+  }
+  
+  // order by timestamp
+  formattedMetricsToImport.sort((a, b) => {
+    return dayjs(a.timestamp).isAfter(dayjs(b.timestamp)) ? 1 : -1;
   });
 
   logger.info(
@@ -216,6 +234,19 @@ const start = async () => {
   if (appConfig.app.isDryRun) {
     logger.info("Dry run enabled, not saving metrics...");
     return;
+  } else {
+    // save in batches of 100
+    const batchSize = 100;
+
+    for (let i = 0; i < formattedMetricsToImport.length; i += batchSize) {
+      logger.info(`Saving metrics: ${i} to ${i + batchSize}`)
+      const batch = formattedMetricsToImport.slice(i, i + batchSize);
+      await UpsertMetrics({
+        input: {
+          details: batch,
+        },
+      });
+    }
   }
 };
 
@@ -225,7 +256,8 @@ CronJob.from({
     try {
       await start();
     } catch (e) {
-      logger.error(`Import crashed, Error: ${JSON.stringify(e, null, 2)}`);
+      console.log(e)
+      logger.error(`Metric Importer crashed, Error: ${JSON.stringify(e, null, 2)}`);
     }
   },
   start: true,

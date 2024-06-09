@@ -66,14 +66,14 @@ export const getMetricTypes = async (
 export const UpsertMetrics = async (
   variables: SaveMetricsMutationVariables
 ): Promise<SaveMetricsMutation> => {
-  logger.info(`Saving metric: ${JSON.stringify(variables, null, 2)}`);
+  logger.info(`Saving metrics: ${variables.input?.details.length}`);
 
   const result = await externalGraphqlClient.request<
     SaveMetricsMutation,
     SaveMetricsMutationVariables
   >(SaveMetrics, variables);
 
-  logger.info(`Saved metric: ${JSON.stringify(result, null, 2)}`);
+  logger.info(`Saved metrics.`);
 
   return result;
 };
