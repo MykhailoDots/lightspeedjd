@@ -14,10 +14,11 @@ export const appConfig = {
     },
     isDryRun: false,
     diskFreeSpaceThresholdInPercent: 20,
-    filePath: "./JD_Umsatz_Gastro.csv",
+    filePath: "/home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv",
     timeZone: "Europe/Zurich",
     autoCreateMetricType: false,
     importColumns: ["date", "costCenter", "metricType", "value"],
+    dateFormat: "DD.MM.YYYY",
     mergeMetricTypes: {
       enabled: true,
       name: "Umsatz",

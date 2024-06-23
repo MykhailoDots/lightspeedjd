@@ -195,7 +195,7 @@ const start = async () => {
       description: null,
       timeZone: appConfig.app.timeZone,
       timestamp: dayjs
-        .tz(m.date, "DD.MM.YYYY", appConfig.app.timeZone)
+        .tz(m.date, appConfig.app.dateFormat, appConfig.app.timeZone)
         .utc()
         .toISOString(),
       value: parseFloat(parseFloat(m.value).toFixed(2)),
