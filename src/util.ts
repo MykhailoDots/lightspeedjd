@@ -1,4 +1,4 @@
-import { appConfig } from "./config.ts";
+import { appEnvironment } from "./config.ts";
 import logger from "./helper/logger";
 import { GraphQLClient } from "graphql-request";
 import {
@@ -24,21 +24,21 @@ if (!authTokens.idToken) {
 }
 
 export const internalGraphqlClient = new GraphQLClient(
-  appConfig.environment.graphql.endpoint,
+  appEnvironment.graphql.endpoint,
   {
     headers: {
-      "x-hasura-admin-secret": appConfig.environment.graphql.adminSecret,
-      organization: appConfig.environment.organization.id,
+      "x-hasura-admin-secret": appEnvironment.graphql.adminSecret,
+      organization: appEnvironment.organization.id,
     },
   }
 );
 
 export const externalGraphqlClient = new GraphQLClient(
-  appConfig.environment.graphql.endpoint,
+  appEnvironment.graphql.endpoint,
   {
     headers: {
       authorization: authTokens.idToken,
-      organization: appConfig.environment.organization.id,
+      organization: appEnvironment.organization.id,
     },
   }
 );

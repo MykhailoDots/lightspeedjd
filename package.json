@@ -28,6 +28,7 @@
     "dayjs": "^1.11.11",
     "graphql": "^16.8.1",
     "graphql-request": "^7.0.1",
+    "snowflake-sdk": "^1.11.0",
     "winston": "^3.13.0"
   }
 }

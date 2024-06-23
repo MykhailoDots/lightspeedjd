@@ -1,4 +1,4 @@
-import { appConfig } from "../config";
+import { appEnvironment } from "../config";
 import dayjs from "./customDayJs";
 import logger from "./logger";
 
@@ -21,7 +21,7 @@ export async function sendMessageToDiscord(
     includeClientName = true,
   } = options;
 
-  if (!appConfig.environment.discord.webhookUrl) {
+  if (!appEnvironment.discord.webhookUrl) {
     logger.error(
       "Webhook URL is not defined. Please set the webhookUrl variable."
     );
@@ -39,7 +39,7 @@ export async function sendMessageToDiscord(
   }
 
   if (includeClientName) {
-    const clientName = `${appConfig.environment.client.name} (${appConfig.environment.client.id})`;
+    const clientName = `${appEnvironment.client.name} (${appEnvironment.client.id})`;
     formattedMessage = `${formattedMessage} - ${clientName}`;
   }
 
@@ -56,7 +56,7 @@ export async function sendMessageToDiscord(
   }
 
   try {
-    const response = await fetch(appConfig.environment.discord.webhookUrl, {
+    const response = await fetch(appEnvironment.discord.webhookUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
