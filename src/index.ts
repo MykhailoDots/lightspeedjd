@@ -23,33 +23,31 @@ const start = async () => {
   logger.info(`Starting Metric Importer)...`);
 
   for (const appConfig of appConfigs) {
-    logger.info(
-      `Importing metrics from ${appConfig.app.sources.activeSource}...`
-    );
+    logger.info(`Importing metrics from ${appConfig.sources.activeSource}...`);
     let metricsToImport: MetricImport[] = [];
 
-    if (appConfig.app.sources.activeSource === SOURCE.CSV) {
+    if (appConfig.sources.activeSource === SOURCE.CSV) {
       logger.info(`Importing metrics from CSV...`);
       metricsToImport = await importFromCsv(appConfig);
-    } else if (appConfig.app.sources.activeSource === SOURCE.SNOWFLAKE) {
+    } else if (appConfig.sources.activeSource === SOURCE.SNOWFLAKE) {
       logger.info(`Importing metrics from Snowflake...`);
       metricsToImport = await importFromSnowflake(appConfig);
     } else {
-      const message = `Unknown source: ${appConfig.app.sources.activeSource}, aborting...`;
+      const message = `Unknown source: ${appConfig.sources.activeSource}, aborting...`;
       logger.error(message);
       await sendMessageToDiscord({ message });
     }
 
     const existingCostCenters: CostCentersByOrganizationIdQuery =
-    await getCostCenters({
-      organizationId: appEnvironment.organization.id,
-    });
-  const existingMetricTypes: MetricTypesByOrganizationIdQuery =
-    await getMetricTypes({
-      organizationId: appEnvironment.organization.id,
-    });
+      await getCostCenters({
+        organizationId: appEnvironment.organization.id,
+      });
+    const existingMetricTypes: MetricTypesByOrganizationIdQuery =
+      await getMetricTypes({
+        organizationId: appEnvironment.organization.id,
+      });
 
-    const metricTypeMappings = appConfig.app.metricTypeMappings;
+    const metricTypeMappings = appConfig.metricTypeMappings;
     const renamedExistingMetricTypes = existingMetricTypes.metricType.map(
       (c) => {
         const metricTypeMapping = metricTypeMappings.find(
@@ -108,10 +106,7 @@ const start = async () => {
       // return;
     }
 
-    if (
-      !appConfig.app.mergeMetricTypes &&
-      notExistingMetricTypeNames.length > 0
-    ) {
+    if (!appConfig.mergeMetricTypes && notExistingMetricTypeNames.length > 0) {
       const message = `Metric type names not found in JobDone: ${notExistingMetricTypeNames.join(
         ", "
       )}`;
@@ -120,8 +115,8 @@ const start = async () => {
       // return;
     }
 
-    if (appConfig.app.mergeMetricTypes.enabled) {
-      const mergeMetricTypeName = appConfig.app.mergeMetricTypes.name;
+    if (appConfig.mergeMetricTypes.enabled) {
+      const mergeMetricTypeName = appConfig.mergeMetricTypes.name;
       if (
         !existingMetricTypes.metricType.some(
           (mt) => mt.name === mergeMetricTypeName
@@ -144,10 +139,8 @@ const start = async () => {
 
     metricsToImport.forEach((m) => {
       const costCenterId = existingCostCenterIdsByNameMap.get(m.costCenter);
-      const metricTypeId = appConfig.app.mergeMetricTypes.enabled
-        ? existingMetricTypesIdsByNameMap.get(
-            appConfig.app.mergeMetricTypes.name
-          )
+      const metricTypeId = appConfig.mergeMetricTypes.enabled
+        ? existingMetricTypesIdsByNameMap.get(appConfig.mergeMetricTypes.name)
         : existingMetricTypesIdsByNameMap.get(m.metricType);
       const metricTypeMapping = metricTypeMappingsByNameMap.get(m.metricType);
 
@@ -161,13 +154,13 @@ const start = async () => {
       }
 
       if (!metricTypeId) {
-        if (appConfig.app.mergeMetricTypes.enabled) {
+        if (appConfig.mergeMetricTypes.enabled) {
           logger.error(
-            `Merge Metric type does not exist: ${appConfig.app.mergeMetricTypes.name}`
+            `Merge Metric type does not exist: ${appConfig.mergeMetricTypes.name}`
           );
           metricsUnableToImport.push({
             MetricCSVImport: m,
-            Reason: `Merge Metric type does not exist: ${appConfig.app.mergeMetricTypes.name}`,
+            Reason: `Merge Metric type does not exist: ${appConfig.mergeMetricTypes.name}`,
           });
           return;
         } else {
@@ -180,13 +173,13 @@ const start = async () => {
         }
       }
 
-      if (!appConfig.app.mergeMetricTypes.enabled && !metricTypeMapping) {
+      if (!appConfig.mergeMetricTypes.enabled && !metricTypeMapping) {
         logger.error(
-          `Merge Metric type mapping does not exist: ${appConfig.app.mergeMetricTypes.name}`
+          `Merge Metric type mapping does not exist: ${appConfig.mergeMetricTypes.name}`
         );
         metricsUnableToImport.push({
           MetricCSVImport: m,
-          Reason: `Merge Metric type mapping does not exist: ${appConfig.app.mergeMetricTypes.name}`,
+          Reason: `Merge Metric type mapping does not exist: ${appConfig.mergeMetricTypes.name}`,
         });
         return;
       }
@@ -194,18 +187,18 @@ const start = async () => {
       formattedMetricsToImport.push({
         costCenterId,
         metricTypeId,
-        field: appConfig.app.mergeMetricTypes.enabled
-          ? appConfig.app.mergeMetricTypes.targetField
+        field: appConfig.mergeMetricTypes.enabled
+          ? appConfig.mergeMetricTypes.targetField
           : metricTypeMapping.targetField,
         description: null,
-        timeZone: appConfig.app.timeZone,
+        timeZone: appConfig.timeZone,
         timestamp: m.timestampCompatibleWithGranularity,
         value: parseFloat(parseFloat(m.value).toFixed(2)),
       });
     });
 
-    // if appConfig.app.mergeMetricTypes.enabled is enabled, sum the value of metrics that have the same timestamp, costCenterId, and metricTypeId
-    if (appConfig.app.mergeMetricTypes.enabled) {
+    // if appConfig.mergeMetricTypes.enabled is enabled, sum the value of metrics that have the same timestamp, costCenterId, and metricTypeId
+    if (appConfig.mergeMetricTypes.enabled) {
       const mergedMetrics = new Map();
       formattedMetricsToImport.forEach((metric) => {
         const key = `${metric.timestamp}-${metric.costCenterId}-${metric.metricTypeId}`;
@@ -240,7 +233,7 @@ const start = async () => {
     );
     console.table(metricsUnableToImport);
 
-    if (appConfig.app.isDryRun) {
+    if (appConfig.isDryRun) {
       logger.info("Dry run enabled, not saving metrics...");
       return;
     } else {
@@ -261,7 +254,7 @@ const start = async () => {
 };
 
 CronJob.from({
-  cronTime: '40 * * * *', // every hour at 40 minutes
+  cronTime: "40 * * * *", // every hour at 40 minutes
   onTick: async () => {
     try {
       await start();

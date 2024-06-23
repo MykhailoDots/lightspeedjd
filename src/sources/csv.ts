@@ -12,11 +12,13 @@ export interface MetricCSVImport {
   value: string;
 }
 
-const parseCsv = async (appConfig: typeof appConfigs[0]): Promise<MetricCSVImport[]> => {
+const parseCsv = async (
+  appConfig: (typeof appConfigs)[0]
+): Promise<MetricCSVImport[]> => {
   // read csv file
-  const csv = fs.readFileSync(appConfig.app.sources.csv.filePath, "utf8");
+  const csv = fs.readFileSync(appConfig.sources.csv.filePath, "utf8");
   const parsedCsv = parse(csv, {
-    columns: [...appConfig.app.sources.csv.importColumns],
+    columns: [...appConfig.sources.csv.importColumns],
     skip_empty_lines: true,
   });
 
@@ -25,30 +27,26 @@ const parseCsv = async (appConfig: typeof appConfigs[0]): Promise<MetricCSVImpor
   return parsedCsv;
 };
 
-export const importFromCsv = async (appConfig: typeof appConfigs[0]): Promise<MetricImport[]> => {
+export const importFromCsv = async (
+  appConfig: (typeof appConfigs)[0]
+): Promise<MetricImport[]> => {
   // check that all appConfig values are set
-  if (!appConfig.app.sources.csv.filePath) {
-    throw new Error("appConfig.app.sources.csv.filePath is not set");
+  if (!appConfig.sources.csv.filePath) {
+    throw new Error("appConfig.sources.csv.filePath is not set");
   }
-  if (!appConfig.app.sources.csv.importColumns) {
-    throw new Error("appConfig.app.sources.csv.importColumns is not set");
+  if (!appConfig.sources.csv.importColumns) {
+    throw new Error("appConfig.sources.csv.importColumns is not set");
   }
-  if (!appConfig.app.sources.csv.dateFormat) {
-    throw new Error("appConfig.app.sources.csv.dateFormat is not set");
+  if (!appConfig.sources.csv.dateFormat) {
+    throw new Error("appConfig.sources.csv.dateFormat is not set");
   }
 
-  const metricsToImport: MetricCSVImport[] = await parseCsv(
-    appConfig
-  );
+  const metricsToImport: MetricCSVImport[] = await parseCsv(appConfig);
 
   const mappedMetricsIoImport: MetricImport[] = metricsToImport.map((m) => {
     return {
       timestampCompatibleWithGranularity: dayjs
-        .tz(
-          m.date,
-          appConfig.app.sources.csv.dateFormat,
-          appConfig.app.timeZone
-        )
+        .tz(m.date, appConfig.sources.csv.dateFormat, appConfig.timeZone)
         .utc()
         .toISOString(),
       costCenter: m.costCenter,

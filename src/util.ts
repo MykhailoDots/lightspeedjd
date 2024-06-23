@@ -20,7 +20,7 @@ authTokens = await authenticate();
 logger.info(`Authenticated with Jobdone API: ${authTokens.idToken}`);
 
 if (!authTokens.idToken) {
-    throw new Error("Failed to authenticate with Jobdone API");
+  throw new Error("Failed to authenticate with Jobdone API");
 }
 
 export const internalGraphqlClient = new GraphQLClient(

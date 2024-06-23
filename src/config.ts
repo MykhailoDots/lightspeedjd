@@ -48,27 +48,26 @@ export enum SOURCE {
 }
 
 const appConfig = {
-  app: {
-    isDryRun: true,
-    sources: {
-      activeSource: getEnvVar("SOURCE") as SOURCE | undefined,
-      csv: {
-        // filePath: "/home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv",
-        filePath: "JD_Umsatz_Gastro.csv",
-        importColumns: ["date", "costCenter", "metricType", "value"],
-        dateFormat: "DD.MM.YYYY",
-      },
-      snowflake: {
-        account: getEnvVar("SNOWFLAKE_ACCOUNT", true),
-        username: getEnvVar("SNOWFLAKE_USER", true),
-        password: getEnvVar("SNOWFLAKE_PASSWORD", true),
-        database: getEnvVar("SNOWFLAKE_DATABASE", true),
-        schema: getEnvVar("SNOWFLAKE_SCHEMA", true),
-        warehouse: getEnvVar("SNOWFLAKE_WAREHOUSE", true),
-        role: getEnvVar("SNOWFLAKE_ROLE", true),
-        daysPast: 30,
-        daysFuture: 0,
-        query: `
+  isDryRun: true,
+  sources: {
+    activeSource: getEnvVar("SOURCE") as SOURCE | undefined,
+    csv: {
+      // filePath: "/home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv",
+      filePath: "JD_Umsatz_Gastro.csv",
+      importColumns: ["date", "costCenter", "metricType", "value"],
+      dateFormat: "DD.MM.YYYY",
+    },
+    snowflake: {
+      account: getEnvVar("SNOWFLAKE_ACCOUNT", true),
+      username: getEnvVar("SNOWFLAKE_USER", true),
+      password: getEnvVar("SNOWFLAKE_PASSWORD", true),
+      database: getEnvVar("SNOWFLAKE_DATABASE", true),
+      schema: getEnvVar("SNOWFLAKE_SCHEMA", true),
+      warehouse: getEnvVar("SNOWFLAKE_WAREHOUSE", true),
+      role: getEnvVar("SNOWFLAKE_ROLE", true),
+      daysPast: 30,
+      daysFuture: 0,
+      query: `
           SELECT
               RESTAURANTID AS costCenter,
               DATE_TRUNC('HOUR', "timestamp") AS "timestamp",
@@ -83,60 +82,59 @@ const appConfig = {
           ORDER BY
               RESTAURANTID,
               DATE_TRUNC('HOUR', "timestamp")
-        `
-      },
+        `,
     },
-    diskFreeSpaceThresholdInPercent: 20,
-    timeZone: "Europe/Zurich",
-    autoCreateMetricType: false,
-    mergeMetricTypes: {
-      enabled: true,
-      name: "Umsatz",
+  },
+  diskFreeSpaceThresholdInPercent: 20,
+  timeZone: "Europe/Zurich",
+  autoCreateMetricType: false,
+  mergeMetricTypes: {
+    enabled: true,
+    name: "Umsatz",
+    targetField: "actual",
+  },
+  metricTypeMappings: [
+    {
+      importName: "Verkauf Bier",
+      jobdoneName: "Bier",
       targetField: "actual",
     },
-    metricTypeMappings: [
-      {
-        importName: "Verkauf Bier",
-        jobdoneName: "Bier",
-        targetField: "actual",
-      },
-      {
-        importName: "Verkauf Kaffee/Tee/Ovo",
-        jobdoneName: "Kaffee/Tee/Ovo",
-        targetField: "actual",
-      },
-      {
-        importName: "Verkauf Küche",
-        jobdoneName: "Küche",
-        targetField: "actual",
-      },
-      {
-        importName: "Verkauf Mineralwasser",
-        jobdoneName: "Mineralwasser",
-        targetField: "actual",
-      },
-      {
-        importName: "Verkauf Pizza",
-        jobdoneName: "Pizza",
-        targetField: "actual",
-      },
-      {
-        importName: "Verkauf Spirituosen/Liq.",
-        jobdoneName: "Spirituosen/Liq.",
-        targetField: "actual",
-      },
-      {
-        importName: "Verkauf Vinoteca",
-        jobdoneName: "Vinoteca",
-        targetField: "actual",
-      },
-      {
-        importName: "Verkauf Weine",
-        jobdoneName: "Weine",
-        targetField: "actual",
-      },
-    ],
-  },
+    {
+      importName: "Verkauf Kaffee/Tee/Ovo",
+      jobdoneName: "Kaffee/Tee/Ovo",
+      targetField: "actual",
+    },
+    {
+      importName: "Verkauf Küche",
+      jobdoneName: "Küche",
+      targetField: "actual",
+    },
+    {
+      importName: "Verkauf Mineralwasser",
+      jobdoneName: "Mineralwasser",
+      targetField: "actual",
+    },
+    {
+      importName: "Verkauf Pizza",
+      jobdoneName: "Pizza",
+      targetField: "actual",
+    },
+    {
+      importName: "Verkauf Spirituosen/Liq.",
+      jobdoneName: "Spirituosen/Liq.",
+      targetField: "actual",
+    },
+    {
+      importName: "Verkauf Vinoteca",
+      jobdoneName: "Vinoteca",
+      targetField: "actual",
+    },
+    {
+      importName: "Verkauf Weine",
+      jobdoneName: "Weine",
+      targetField: "actual",
+    },
+  ],
 } as const;
 
 export const appConfigs = [appConfig];
