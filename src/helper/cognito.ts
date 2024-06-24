@@ -37,9 +37,9 @@ export const refreshBearerToken = async (
     const response = await client.send(command);
     logger.info("Token refresh successful!", response);
     return {
-      accessToken: response.AuthenticationResult.AccessToken,
-      idToken: response.AuthenticationResult.IdToken,
-      refreshToken: response.AuthenticationResult.RefreshToken,
+      accessToken: response.AuthenticationResult?.AccessToken,
+      idToken: response.AuthenticationResult?.IdToken,
+      refreshToken: response.AuthenticationResult?.RefreshToken,
     };
   } catch (error) {
     logger.error("Token refresh failed:", error);
@@ -48,13 +48,13 @@ export const refreshBearerToken = async (
 };
 
 export const authenticate = async (): Promise<AuthTokens> => {
-  if (appEnvironment.auth.bearerToken) {
-    return {
-      accessToken: appEnvironment.auth.bearerToken,
-      idToken: "",
-      refreshToken: "",
-    };
-  }
+  // if (appEnvironment.auth.bearerToken) {
+  //   return {
+  //     accessToken: appEnvironment.auth.bearerToken,
+  //     idToken: "",
+  //     refreshToken: "",
+  //   };
+  // }
   const srpSession = createSrpSession(
     appEnvironment.auth.username,
     appEnvironment.auth.password,
@@ -91,9 +91,9 @@ export const authenticate = async (): Promise<AuthTokens> => {
       `Authentication successful: ${JSON.stringify(response, null, 2)}`
     );
     return {
-      accessToken: response.AuthenticationResult.AccessToken,
-      idToken: response.AuthenticationResult.IdToken,
-      refreshToken: response.AuthenticationResult.RefreshToken,
+      accessToken: response.AuthenticationResult?.AccessToken,
+      idToken: response.AuthenticationResult?.IdToken,
+      refreshToken: response.AuthenticationResult?.RefreshToken,
     };
   } catch (error) {
     logger.error(`Authentication failed: ${JSON.stringify(error, null, 2)}`);
