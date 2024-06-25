@@ -19,7 +19,7 @@ const applyTransformations = (data: any[], transformations: (typeof appConfigs)[
       if (operation === OPERATION.ADD) {
         // Ensure operands exist
         if (row[operands[0]] && row[operands[1]]) {
-          row[outputColumn] = parseFloat(row[operands[0]]) + parseFloat(row[operands[1]]);
+          row[outputColumn] = (parseFloat(row[operands[0]]) + parseFloat(row[operands[1]])).toFixed(2);
         }
       }
     });
