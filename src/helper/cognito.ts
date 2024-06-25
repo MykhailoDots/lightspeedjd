@@ -9,7 +9,7 @@ import {
   InitiateAuthCommand,
   RespondToAuthChallengeCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
-import { appConfig } from "../config";
+import { appEnvironment } from "../config";
 import logger from "./logger";
 
 export interface AuthTokens {
@@ -19,7 +19,7 @@ export interface AuthTokens {
 }
 
 export const client = new CognitoIdentityProviderClient({
-  region: appConfig.environment.auth.authRegion,
+  region: appEnvironment.auth.authRegion,
 });
 
 export const refreshBearerToken = async (
@@ -27,7 +27,7 @@ export const refreshBearerToken = async (
 ): Promise<AuthTokens> => {
   const command = new InitiateAuthCommand({
     AuthFlow: "REFRESH_TOKEN_AUTH",
-    ClientId: appConfig.environment.auth.userPoolWebClientId,
+    ClientId: appEnvironment.auth.userPoolWebClientId,
     AuthParameters: {
       REFRESH_TOKEN: refreshToken,
     },
@@ -37,9 +37,9 @@ export const refreshBearerToken = async (
     const response = await client.send(command);
     logger.info("Token refresh successful!", response);
     return {
-      accessToken: response.AuthenticationResult.AccessToken,
-      idToken: response.AuthenticationResult.IdToken,
-      refreshToken: response.AuthenticationResult.RefreshToken,
+      accessToken: response.AuthenticationResult?.AccessToken,
+      idToken: response.AuthenticationResult?.IdToken,
+      refreshToken: response.AuthenticationResult?.RefreshToken,
     };
   } catch (error) {
     logger.error("Token refresh failed:", error);
@@ -48,26 +48,26 @@ export const refreshBearerToken = async (
 };
 
 export const authenticate = async (): Promise<AuthTokens> => {
-  if (appConfig.environment.auth.bearerToken) {
-    return {
-      accessToken: appConfig.environment.auth.bearerToken,
-      idToken: "",
-      refreshToken: "",
-    };
-  }
+  // if (appEnvironment.auth.bearerToken) {
+  //   return {
+  //     accessToken: appEnvironment.auth.bearerToken,
+  //     idToken: "",
+  //     refreshToken: "",
+  //   };
+  // }
   const srpSession = createSrpSession(
-    appConfig.environment.auth.username,
-    appConfig.environment.auth.password,
-    appConfig.environment.auth.userPoolId,
+    appEnvironment.auth.username,
+    appEnvironment.auth.password,
+    appEnvironment.auth.userPoolId,
     false
   );
   const command = new InitiateAuthCommand(
     wrapInitiateAuth(srpSession, {
       AuthFlow: "USER_SRP_AUTH",
-      ClientId: appConfig.environment.auth.userPoolWebClientId,
+      ClientId: appEnvironment.auth.userPoolWebClientId,
       AuthParameters: {
         CHALLENGE_NAME: "SRP_A",
-        USERNAME: appConfig.environment.auth.username,
+        USERNAME: appEnvironment.auth.username,
       },
     })
   );
@@ -78,10 +78,10 @@ export const authenticate = async (): Promise<AuthTokens> => {
     const response = await client.send(
       new RespondToAuthChallengeCommand(
         wrapAuthChallenge(signedSrpSession, {
-          ClientId: appConfig.environment.auth.userPoolWebClientId,
+          ClientId: appEnvironment.auth.userPoolWebClientId,
           ChallengeName: "PASSWORD_VERIFIER",
           ChallengeResponses: {
-            USERNAME: appConfig.environment.auth.username,
+            USERNAME: appEnvironment.auth.username,
           },
         })
       )
@@ -91,9 +91,9 @@ export const authenticate = async (): Promise<AuthTokens> => {
       `Authentication successful: ${JSON.stringify(response, null, 2)}`
     );
     return {
-      accessToken: response.AuthenticationResult.AccessToken,
-      idToken: response.AuthenticationResult.IdToken,
-      refreshToken: response.AuthenticationResult.RefreshToken,
+      accessToken: response.AuthenticationResult?.AccessToken,
+      idToken: response.AuthenticationResult?.IdToken,
+      refreshToken: response.AuthenticationResult?.RefreshToken,
     };
   } catch (error) {
     logger.error(`Authentication failed: ${JSON.stringify(error, null, 2)}`);

@@ -1,4 +1,4 @@
-import { appConfig } from "./config.ts";
+import { appEnvironment } from "./config.ts";
 import logger from "./helper/logger";
 import { GraphQLClient } from "graphql-request";
 import {
@@ -20,25 +20,25 @@ authTokens = await authenticate();
 logger.info(`Authenticated with Jobdone API: ${authTokens.idToken}`);
 
 if (!authTokens.idToken) {
-    throw new Error("Failed to authenticate with Jobdone API");
+  throw new Error("Failed to authenticate with Jobdone API");
 }
 
 export const internalGraphqlClient = new GraphQLClient(
-  appConfig.environment.graphql.endpoint,
+  appEnvironment.graphql.endpoint,
   {
     headers: {
-      "x-hasura-admin-secret": appConfig.environment.graphql.adminSecret,
-      organization: appConfig.environment.organization.id,
+      "x-hasura-admin-secret": appEnvironment.graphql.adminSecret,
+      organization: appEnvironment.organization.id,
     },
   }
 );
 
 export const externalGraphqlClient = new GraphQLClient(
-  appConfig.environment.graphql.endpoint,
+  appEnvironment.graphql.endpoint,
   {
     headers: {
       authorization: authTokens.idToken,
-      organization: appConfig.environment.organization.id,
+      organization: appEnvironment.organization.id,
     },
   }
 );
