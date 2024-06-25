@@ -47,14 +47,26 @@ export enum SOURCE {
   SNOWFLAKE = "snowflake",
 }
 
-const appConfig = {
-  isDryRun: true,
+export enum OPERATION {
+  SUBTRACT = "subtract",
+  ADD = "add",
+}
+
+const appConfigBindella = {
+  isDryRun: false,
   sources: {
     activeSource: getEnvVar("SOURCE") as SOURCE | undefined,
     csv: {
       // filePath: "/home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv",
       filePath: "JD_Umsatz_Gastro.csv",
-      importColumns: ["date", "costCenter", "metricType", "value"],
+      importColumns: ["date", "costCenter", "metricType", "value", "tax"],
+      transformColumns: [
+        {
+          outputColumn: "value",
+          operation: OPERATION.ADD,
+          operands: ["value", "tax"]
+        }
+      ],
       dateFormat: "DD.MM.YYYY",
     },
     snowflake: {
@@ -137,4 +149,4 @@ const appConfig = {
   ],
 } as const;
 
-export const appConfigs = [appConfig];
+export const appConfigs = [appConfigBindella];
