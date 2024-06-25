@@ -57,8 +57,8 @@ const appConfigBindella = {
   sources: {
     activeSource: getEnvVar("SOURCE") as SOURCE | undefined,
     csv: {
-      // filePath: "/home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv",
-      filePath: "JD_Umsatz_Gastro.csv",
+      filePath: "/home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv",
+      // filePath: "JD_Umsatz_Gastro_ab010124.csv",
       importColumns: ["date", "costCenter", "metricType", "value", "tax"],
       transformColumns: [
         {
