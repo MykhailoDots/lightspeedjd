@@ -12,7 +12,11 @@ import {
   type MetricTypesByOrganizationIdQueryVariables,
   type MetricTypesByOrganizationIdQuery,
 } from "./graphql/generated/graphql.ts";
-import { type AuthTokens, authenticate } from "./helper/cognito.ts";
+import {
+  type AuthTokens,
+  authenticate,
+  refreshBearerToken,
+} from "./helper/cognito.ts";
 
 let authTokens: AuthTokens;
 
@@ -22,6 +26,13 @@ logger.info(`Authenticated with Jobdone API: ${authTokens.idToken}`);
 if (!authTokens.idToken) {
   throw new Error("Failed to authenticate with Jobdone API");
 }
+
+export const refreshAuthTokenBearerToken = async () => {
+  if (authTokens.refreshToken) {
+    const response = await refreshBearerToken(authTokens.refreshToken);
+    authTokens.idToken = response.idToken;
+  }
+};
 
 export const internalGraphqlClient = new GraphQLClient(
   appEnvironment.graphql.endpoint,

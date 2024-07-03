@@ -10,7 +10,12 @@ import type {
 import { sendMessageToDiscord } from "./helper/discord.ts";
 import { importFromCsv } from "./sources/csv.ts";
 import { importFromSnowflake } from "./sources/snowflake.ts";
-import { getCostCenters, getMetricTypes, UpsertMetrics } from "./util.ts";
+import {
+  getCostCenters,
+  getMetricTypes,
+  refreshAuthTokenBearerToken,
+  UpsertMetrics,
+} from "./util.ts";
 
 export interface MetricImport {
   timestampCompatibleWithGranularity: string;
@@ -21,6 +26,8 @@ export interface MetricImport {
 
 const start = async () => {
   logger.info(`Starting Metric Importer)...`);
+
+  await refreshAuthTokenBearerToken();
 
   for (const appConfig of appConfigs) {
     logger.info(`Importing metrics from ${appConfig.sources.activeSource}...`);
