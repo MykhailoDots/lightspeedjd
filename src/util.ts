@@ -31,6 +31,10 @@ export const refreshAuthTokenBearerToken = async () => {
   if (authTokens.refreshToken) {
     const response = await refreshBearerToken(authTokens.refreshToken);
     authTokens.idToken = response.idToken;
+    authTokens.accessToken = response.accessToken;
+    logger.info(`Refreshed bearer token: ${authTokens.idToken}`);
+  } else {
+    logger.error("No refresh token found.")
   }
 };
 
