@@ -25,7 +25,7 @@ export interface MetricImport {
 }
 
 const start = async () => {
-  logger.info(`Starting Metric Importer)...`);
+  logger.info(`Starting Metric Importer) at ${dayjs().format()}`);
 
   await refreshAuthTokenBearerToken();
 

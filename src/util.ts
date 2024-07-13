@@ -33,6 +33,13 @@ export const refreshAuthTokenBearerToken = async () => {
     authTokens.idToken = response.idToken;
     authTokens.accessToken = response.accessToken;
     logger.info(`Refreshed bearer token: ${authTokens.idToken}`);
+    
+    if (authTokens.idToken) {
+      externalGraphqlClient.setHeader("authorization", authTokens.idToken);
+      logger.info(`Updated bearer token in externalGraphqlClient: ${authTokens.idToken}`);
+    } else {
+      logger.error("Unable to refresh bearer token, no idToken found.");
+    }
   } else {
     logger.error("No refresh token found.")
   }
