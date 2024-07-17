@@ -25,12 +25,12 @@ export interface MetricImport {
 }
 
 const start = async () => {
-  logger.info(`Starting Metric Importer) at ${dayjs().format()}`);
+  logger.info(`Starting Metric Importer at ${dayjs().format()}`);
 
   await refreshAuthTokenBearerToken();
 
   for (const appConfig of appConfigs) {
-    logger.info(`Importing metrics from ${appConfig.sources.activeSource}...`);
+    logger.info(`Importing metrics from ${appConfig.sources.activeSource} for ${appEnvironment.organization.name} (${appEnvironment.organization.id})...`);
     let metricsToImport: MetricImport[] = [];
 
     if (appConfig.sources.activeSource === SOURCE.CSV) {
