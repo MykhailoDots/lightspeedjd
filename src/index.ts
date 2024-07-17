@@ -229,11 +229,11 @@ const start = async () => {
     logger.info(
       `Metrics to import: ${formattedMetricsToImport.length}, Metrics unable to import: ${metricsUnableToImport.length}`
     );
-    logger.info(
-      "Metrics to import:",
-      JSON.stringify(formattedMetricsToImport, null, 2)
-    );
-    console.table(formattedMetricsToImport);
+    // logger.info(
+    //   "Metrics to import:",
+    //   JSON.stringify(formattedMetricsToImport, null, 2)
+    // );
+    // console.table(formattedMetricsToImport);
     logger.info(
       "Metrics unable to import:",
       JSON.stringify(metricsUnableToImport, null, 2)

@@ -3,6 +3,7 @@ import { parse } from "csv-parse/sync";
 import fs from "fs";
 import type { MetricImport } from "..";
 import dayjs from "dayjs";
+import logger from "../helper/logger";
 
 // TODO: Lucky: 2024-06-23: Make import dynamic based on config to handle different csv files
 export interface MetricCSVImport {
@@ -33,24 +34,21 @@ const parseCsv = async (
 ): Promise<MetricCSVImport[]> => {
   // read csv file
   const csv = fs.readFileSync(appConfig.sources.csv.filePath, "utf8");
-  const parsedCsv = parse(csv, {
+  let parsedCsv = parse(csv, {
     columns: [...appConfig.sources.csv.importColumns],
     skip_empty_lines: true,
   });
 
-  // console.table(parsedCsv);
-
-  let formattedCsv;
-
   if (appConfig.sources.csv.transformColumns && appConfig.sources.csv.transformColumns.length) {
-    formattedCsv = applyTransformations(parsedCsv, appConfig.sources.csv.transformColumns);
+    logger.info("Applying transformations to CSV data");
+    parsedCsv = applyTransformations(parsedCsv, appConfig.sources.csv.transformColumns);
   }
 
-  if (!formattedCsv) {
+  if (!parsedCsv) {
     throw new Error("No formatted CSV data");
   }
 
-  return formattedCsv?.map((row) => {
+  return parsedCsv?.map((row: any) => {
     return {
       date: row.date,
       costCenter: row.costCenter,
@@ -75,6 +73,8 @@ export const importFromCsv = async (
   }
 
   const metricsToImport: MetricCSVImport[] = await parseCsv(appConfig);
+
+  // console.log(metricsToImport);
 
   const mappedMetricsIoImport: MetricImport[] = metricsToImport.map((m) => {
     return {

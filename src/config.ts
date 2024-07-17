@@ -52,22 +52,22 @@ export enum OPERATION {
   ADD = "add",
 }
 
-const appConfigBindella = {
+const appConfigFWG = {
   isDryRun: false,
   sources: {
     activeSource: getEnvVar("SOURCE") as SOURCE | undefined,
     csv: {
-      filePath: "/home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv",
-      // filePath: "JD_Umsatz_Gastro_ab010124.csv",
-      importColumns: ["date", "costCenter", "metricType", "value", "tax"],
+      // filePath: "/home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv",
+      filePath: "Group by Day - Correct Table.csv",
+      importColumns: ["date", "costCenter", "metricType", "value"],
       transformColumns: [
-        {
-          outputColumn: "value",
-          operation: OPERATION.ADD,
-          operands: ["value", "tax"]
-        }
+        // {
+        //   outputColumn: "value",
+        //   operation: OPERATION.ADD,
+        //   operands: ["value", "tax"]
+        // }
       ],
-      dateFormat: "DD.MM.YYYY",
+      dateFormat: "YYYY-MM-DD",
     },
     snowflake: {
       account: getEnvVar("SNOWFLAKE_ACCOUNT", true),
@@ -80,20 +80,20 @@ const appConfigBindella = {
       daysPast: 30,
       daysFuture: 0,
       query: `
-          SELECT
-              RESTAURANTID AS costCenter,
-              DATE_TRUNC('HOUR', "timestamp") AS "timestamp",
-              SUM(NETTOTAL_TOTALFC) AS value
-          FROM
-              FACT_TRANSAKTIONEN
-          WHERE
-              "timestamp" BETWEEN ? AND ?
-          GROUP BY
-              RESTAURANTID,
-              DATE_TRUNC('HOUR', "timestamp")
-          ORDER BY
-              RESTAURANTID,
-              DATE_TRUNC('HOUR', "timestamp")
+SELECT
+    RESTAURANTID AS costCenter,
+    DATUM AS date,
+    SUM(NETTOTAL_TOTALFC) AS value
+FROM
+    FACTTRANSAKTIONEN
+WHERE
+    DATUM BETWEEN '{fromDate}' AND '{toDate}'
+GROUP BY
+    RESTAURANTID,
+    DATUM
+ORDER BY
+    RESTAURANTID,
+    DATUM;
         `,
     },
   },
@@ -106,47 +106,47 @@ const appConfigBindella = {
     targetField: "actual",
   },
   metricTypeMappings: [
-    {
-      importName: "Verkauf Bier",
-      jobdoneName: "Bier",
-      targetField: "actual",
-    },
-    {
-      importName: "Verkauf Kaffee/Tee/Ovo",
-      jobdoneName: "Kaffee/Tee/Ovo",
-      targetField: "actual",
-    },
-    {
-      importName: "Verkauf Küche",
-      jobdoneName: "Küche",
-      targetField: "actual",
-    },
-    {
-      importName: "Verkauf Mineralwasser",
-      jobdoneName: "Mineralwasser",
-      targetField: "actual",
-    },
-    {
-      importName: "Verkauf Pizza",
-      jobdoneName: "Pizza",
-      targetField: "actual",
-    },
-    {
-      importName: "Verkauf Spirituosen/Liq.",
-      jobdoneName: "Spirituosen/Liq.",
-      targetField: "actual",
-    },
-    {
-      importName: "Verkauf Vinoteca",
-      jobdoneName: "Vinoteca",
-      targetField: "actual",
-    },
-    {
-      importName: "Verkauf Weine",
-      jobdoneName: "Weine",
-      targetField: "actual",
-    },
+    // {
+    //   importName: "Verkauf Bier",
+    //   jobdoneName: "Bier",
+    //   targetField: "actual",
+    // },
+    // {
+    //   importName: "Verkauf Kaffee/Tee/Ovo",
+    //   jobdoneName: "Kaffee/Tee/Ovo",
+    //   targetField: "actual",
+    // },
+    // {
+    //   importName: "Verkauf Küche",
+    //   jobdoneName: "Küche",
+    //   targetField: "actual",
+    // },
+    // {
+    //   importName: "Verkauf Mineralwasser",
+    //   jobdoneName: "Mineralwasser",
+    //   targetField: "actual",
+    // },
+    // {
+    //   importName: "Verkauf Pizza",
+    //   jobdoneName: "Pizza",
+    //   targetField: "actual",
+    // },
+    // {
+    //   importName: "Verkauf Spirituosen/Liq.",
+    //   jobdoneName: "Spirituosen/Liq.",
+    //   targetField: "actual",
+    // },
+    // {
+    //   importName: "Verkauf Vinoteca",
+    //   jobdoneName: "Vinoteca",
+    //   targetField: "actual",
+    // },
+    // {
+    //   importName: "Verkauf Weine",
+    //   jobdoneName: "Weine",
+    //   targetField: "actual",
+    // },
   ],
 } as const;
 
-export const appConfigs = [appConfigBindella];
+export const appConfigs = [appConfigFWG];
