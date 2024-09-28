@@ -1,4 +1,4 @@
-import { OPERATION, appConfigs } from "../config";
+import { type AppConfig, type TransformColumn } from "../config";
 import { parse } from "csv-parse/sync";
 import fs from "fs";
 import type { MetricImport } from "..";
@@ -13,14 +13,19 @@ export interface MetricCSVImport {
   value: string;
 }
 
-const applyTransformations = (data: any[], transformations: (typeof appConfigs)[0]["sources"]["csv"]["transformColumns"]) => {
-  return data.map(row => {
+const applyTransformations = (
+  data: any[],
+  transformations: TransformColumn[]
+) => {
+  return data.map((row) => {
     console.log("raw row", JSON.stringify(row, null, 2));
     transformations.forEach(({ outputColumn, operation, operands }) => {
-      if (operation === OPERATION.ADD) {
+      if (operation === "add") {
         // Ensure operands exist
         if (row[operands[0]] && row[operands[1]]) {
-          row[outputColumn] = (parseFloat(row[operands[0]]) + parseFloat(row[operands[1]])).toFixed(2);
+          row[outputColumn] = (
+            parseFloat(row[operands[0]]) + parseFloat(row[operands[1]])
+          ).toFixed(2);
         }
       }
     });
@@ -29,9 +34,7 @@ const applyTransformations = (data: any[], transformations: (typeof appConfigs)[
   });
 };
 
-const parseCsv = async (
-  appConfig: (typeof appConfigs)[0]
-): Promise<MetricCSVImport[]> => {
+const parseCsv = async (appConfig: AppConfig): Promise<MetricCSVImport[]> => {
   // read csv file
   const csv = fs.readFileSync(appConfig.sources.csv.filePath, "utf8");
   let parsedCsv = parse(csv, {
@@ -39,9 +42,15 @@ const parseCsv = async (
     skip_empty_lines: true,
   });
 
-  if (appConfig.sources.csv.transformColumns && appConfig.sources.csv.transformColumns.length) {
+  if (
+    appConfig.sources.csv.transformColumns &&
+    appConfig.sources.csv.transformColumns.length
+  ) {
     logger.info("Applying transformations to CSV data");
-    parsedCsv = applyTransformations(parsedCsv, appConfig.sources.csv.transformColumns);
+    parsedCsv = applyTransformations(
+      parsedCsv,
+      appConfig.sources.csv.transformColumns
+    );
   }
 
   if (!parsedCsv) {
@@ -59,7 +68,7 @@ const parseCsv = async (
 };
 
 export const importFromCsv = async (
-  appConfig: (typeof appConfigs)[0]
+  appConfig: AppConfig
 ): Promise<MetricImport[]> => {
   // check that all appConfig values are set
   if (!appConfig.sources.csv.filePath) {

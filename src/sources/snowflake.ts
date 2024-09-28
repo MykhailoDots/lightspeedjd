@@ -1,25 +1,23 @@
 import snowflake from "snowflake-sdk";
-import { appConfigs } from "../config";
 import dayjs from "dayjs";
 import type { MetricImport } from "..";
 import logger from "../helper/logger";
+import type { AppConfig } from "../config";
 
-export const createSnowflakeConnection = (
-  appConfig: (typeof appConfigs)[0]
-) => {
+export const createSnowflakeConnection = (appConfig: AppConfig) => {
   return snowflake.createConnection({
-    account: appConfig.sources.snowflake.account,
-    username: appConfig.sources.snowflake.username,
-    password: appConfig.sources.snowflake.password,
-    database: appConfig.sources.snowflake.database,
-    schema: appConfig.sources.snowflake.schema,
-    warehouse: appConfig.sources.snowflake.warehouse,
-    role: appConfig.sources.snowflake.role,
+    account: appConfig.sources.snowflake.account || "",
+    username: appConfig.sources.snowflake.username || "",
+    password: appConfig.sources.snowflake.password || "",
+    database: appConfig.sources.snowflake.database || "",
+    schema: appConfig.sources.snowflake.schema || "",
+    warehouse: appConfig.sources.snowflake.warehouse || "",
+    role: appConfig.sources.snowflake.role || "",
   });
 };
 
 export const importFromSnowflake = async (
-  appConfig: (typeof appConfigs)[0]
+  appConfig: AppConfig
 ): Promise<MetricImport[]> => {
   const connection = createSnowflakeConnection(appConfig);
   await new Promise((resolve, reject) =>
