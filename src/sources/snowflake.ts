@@ -46,6 +46,8 @@ export const importFromSnowflake = async (
     .endOf("day")
     .format("YYYY-MM-DD HH:mm:ss");
 
+  logger.info(`Querying Snowflake from ${fromDate} to ${toDate}`);
+
   return new Promise((resolve, reject) => {
     const query = appConfig.sources.snowflake.query;
     connection.execute({
@@ -59,10 +61,11 @@ export const importFromSnowflake = async (
           if (rows) {
             const mappedMetrics: MetricImport[] = rows.map((row) => ({
               timestampCompatibleWithGranularity: dayjs
-                .utc(row.timestamp)
+                .tz(row.timestamp, "YYYY-MM-DD", appConfig.timeZone)
+                .utc()
                 .toISOString(),
               costCenter: row.costCenter,
-              metricType: "financial", // Assuming metric type as "financial" or fetch from config if dynamic
+              metricType: row.metricType,
               value: row.value.toString(),
             }));
             resolve(mappedMetrics);

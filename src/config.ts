@@ -12,6 +12,7 @@ function getEnvVar(name: string, isOptional = false): string {
 }
 
 export const appEnvironment = {
+  cronTime: getEnvVar("CRON_TIME"),
   organization: {
     id: getEnvVar("JOBDONE_ORGANIZATION_ID"),
     name: getEnvVar("JOBDONE_ORGANIZATION_NAME"),
@@ -52,22 +53,71 @@ export enum OPERATION {
   ADD = "add",
 }
 
-const appConfigBindella = {
+interface SourceConfig {
+  activeSource: SOURCE | undefined;
+  csv: {
+    filePath: string;
+    importColumns: string[];
+    transformColumns: {
+      outputColumn: string;
+      operation: OPERATION;
+      operands: string[];
+    }[];
+    dateFormat: string;
+  };
+  snowflake: {
+    account?: string;
+    username?: string;
+    password?: string;
+    database?: string;
+    schema?: string;
+    warehouse?: string;
+    role?: string;
+    daysPast: number;
+    daysFuture: number;
+    query: string;
+  };
+}
+
+interface MergeMetricTypesConfig {
+  enabled: boolean;
+  name: string;
+  targetField: string;
+}
+
+interface MetricTypeMapping {
+  importName: string;
+  jobdoneName: string;
+  targetField: string;
+}
+
+interface AppConfig {
+  isDryRun: boolean;
+  sources: SourceConfig;
+  diskFreeSpaceThresholdInPercent: number;
+  timeZone: string;
+  autoCreateMetricType: boolean;
+  ignoredMissingCostCenters: string[]; // Now typed as string[]
+  mergeMetricTypes: MergeMetricTypesConfig;
+  metricTypeMappings: MetricTypeMapping[];
+}
+
+const appConfigFWG: AppConfig = {
   isDryRun: false,
   sources: {
     activeSource: getEnvVar("SOURCE") as SOURCE | undefined,
     csv: {
-      filePath: "/home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv",
-      // filePath: "JD_Umsatz_Gastro_ab010124.csv",
-      importColumns: ["date", "costCenter", "metricType", "value", "tax"],
+      // filePath: "/home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv",
+      filePath: "Final - Group by Day - Correct Table.csv",
+      importColumns: ["date", "costCenter", "metricType", "value"],
       transformColumns: [
-        {
-          outputColumn: "value",
-          operation: OPERATION.ADD,
-          operands: ["value", "tax"]
-        }
+        // {
+        //   outputColumn: "value",
+        //   operation: OPERATION.ADD,
+        //   operands: ["value", "tax"]
+        // }
       ],
-      dateFormat: "DD.MM.YYYY",
+      dateFormat: "YYYY-MM-DD",
     },
     snowflake: {
       account: getEnvVar("SNOWFLAKE_ACCOUNT", true),
@@ -77,76 +127,78 @@ const appConfigBindella = {
       schema: getEnvVar("SNOWFLAKE_SCHEMA", true),
       warehouse: getEnvVar("SNOWFLAKE_WAREHOUSE", true),
       role: getEnvVar("SNOWFLAKE_ROLE", true),
-      daysPast: 30,
+      daysPast: 7,
       daysFuture: 0,
       query: `
-          SELECT
-              RESTAURANTID AS costCenter,
-              DATE_TRUNC('HOUR', "timestamp") AS "timestamp",
-              SUM(NETTOTAL_TOTALFC) AS value
-          FROM
-              FACT_TRANSAKTIONEN
-          WHERE
-              "timestamp" BETWEEN ? AND ?
-          GROUP BY
-              RESTAURANTID,
-              DATE_TRUNC('HOUR', "timestamp")
-          ORDER BY
-              RESTAURANTID,
-              DATE_TRUNC('HOUR', "timestamp")
+SELECT
+    TO_VARCHAR(DATUM, 'YYYY-MM-DD') AS "timestamp",
+    TRIM(TO_VARCHAR(RESTAURANTID)) AS "costCenter",
+    'Umsatz' AS "metricType",
+    SUM(NETTOTAL_TOTALFC) AS "value"
+FROM
+    FACTTRANSAKTIONEN
+WHERE
+    DATUM BETWEEN ? AND ?
+GROUP BY
+    RESTAURANTID,
+    DATUM
+ORDER BY
+    RESTAURANTID,
+    DATUM;
         `,
     },
   },
   diskFreeSpaceThresholdInPercent: 20,
   timeZone: "Europe/Zurich",
   autoCreateMetricType: false,
+  ignoredMissingCostCenters: ["308", "309", "312", "314", "1000"],
   mergeMetricTypes: {
     enabled: true,
     name: "Umsatz",
     targetField: "actual",
   },
   metricTypeMappings: [
-    {
-      importName: "Verkauf Bier",
-      jobdoneName: "Bier",
-      targetField: "actual",
-    },
-    {
-      importName: "Verkauf Kaffee/Tee/Ovo",
-      jobdoneName: "Kaffee/Tee/Ovo",
-      targetField: "actual",
-    },
-    {
-      importName: "Verkauf Küche",
-      jobdoneName: "Küche",
-      targetField: "actual",
-    },
-    {
-      importName: "Verkauf Mineralwasser",
-      jobdoneName: "Mineralwasser",
-      targetField: "actual",
-    },
-    {
-      importName: "Verkauf Pizza",
-      jobdoneName: "Pizza",
-      targetField: "actual",
-    },
-    {
-      importName: "Verkauf Spirituosen/Liq.",
-      jobdoneName: "Spirituosen/Liq.",
-      targetField: "actual",
-    },
-    {
-      importName: "Verkauf Vinoteca",
-      jobdoneName: "Vinoteca",
-      targetField: "actual",
-    },
-    {
-      importName: "Verkauf Weine",
-      jobdoneName: "Weine",
-      targetField: "actual",
-    },
+    // {
+    //   importName: "Verkauf Bier",
+    //   jobdoneName: "Bier",
+    //   targetField: "actual",
+    // },
+    // {
+    //   importName: "Verkauf Kaffee/Tee/Ovo",
+    //   jobdoneName: "Kaffee/Tee/Ovo",
+    //   targetField: "actual",
+    // },
+    // {
+    //   importName: "Verkauf Küche",
+    //   jobdoneName: "Küche",
+    //   targetField: "actual",
+    // },
+    // {
+    //   importName: "Verkauf Mineralwasser",
+    //   jobdoneName: "Mineralwasser",
+    //   targetField: "actual",
+    // },
+    // {
+    //   importName: "Verkauf Pizza",
+    //   jobdoneName: "Pizza",
+    //   targetField: "actual",
+    // },
+    // {
+    //   importName: "Verkauf Spirituosen/Liq.",
+    //   jobdoneName: "Spirituosen/Liq.",
+    //   targetField: "actual",
+    // },
+    // {
+    //   importName: "Verkauf Vinoteca",
+    //   jobdoneName: "Vinoteca",
+    //   targetField: "actual",
+    // },
+    // {
+    //   importName: "Verkauf Weine",
+    //   jobdoneName: "Weine",
+    //   targetField: "actual",
+    // },
   ],
-} as const;
+};
 
-export const appConfigs = [appConfigBindella];
+export const appConfigs: AppConfig[] = [appConfigFWG];
