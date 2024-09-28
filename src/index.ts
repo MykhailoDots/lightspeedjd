@@ -30,7 +30,9 @@ const start = async () => {
   await refreshAuthTokenBearerToken();
 
   for (const appConfig of appConfigs) {
-    logger.info(`Importing metrics from ${appConfig.sources.activeSource} for ${appEnvironment.organization.name} (${appEnvironment.organization.id})...`);
+    logger.info(
+      `Importing metrics from ${appConfig.sources.activeSource} for ${appEnvironment.organization.name} (${appEnvironment.organization.id})...`
+    );
     let metricsToImport: MetricImport[] = [];
 
     if (appConfig.sources.activeSource === SOURCE.CSV) {
@@ -93,11 +95,11 @@ const start = async () => {
     );
 
     // check by name
-    const notExistingCostCenterNames = Array.from(
-      costCenterNamesToImport
-    ).filter(
-      (c) => !existingCostCenters.costCenter.some((cc) => cc.name === c)
-    );
+    const notExistingCostCenterNames = Array.from(costCenterNamesToImport)
+      .filter(
+        (c) => !existingCostCenters.costCenter.some((cc) => cc.name === c)
+      )
+      .filter((c) => !appConfig.ignoredMissingCostCenters.includes(c));
     const notExistingMetricTypeNames = Array.from(
       metricTypeNamesToImport
     ).filter(
@@ -260,8 +262,10 @@ const start = async () => {
   }
 };
 
+logger.info(`Cron time: ${appEnvironment.cronTime}`);
+
 CronJob.from({
-  cronTime: "40 * * * *", // every hour at 40 minutes
+  cronTime: appEnvironment.cronTime,
   onTick: async () => {
     try {
       await start();

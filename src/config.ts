@@ -12,6 +12,7 @@ function getEnvVar(name: string, isOptional = false): string {
 }
 
 export const appEnvironment = {
+  cronTime: getEnvVar("CRON_TIME"),
   organization: {
     id: getEnvVar("JOBDONE_ORGANIZATION_ID"),
     name: getEnvVar("JOBDONE_ORGANIZATION_NAME"),
@@ -52,13 +53,62 @@ export enum OPERATION {
   ADD = "add",
 }
 
-const appConfigFWG = {
+interface SourceConfig {
+  activeSource: SOURCE | undefined;
+  csv: {
+    filePath: string;
+    importColumns: string[];
+    transformColumns: {
+      outputColumn: string;
+      operation: OPERATION;
+      operands: string[];
+    }[];
+    dateFormat: string;
+  };
+  snowflake: {
+    account?: string;
+    username?: string;
+    password?: string;
+    database?: string;
+    schema?: string;
+    warehouse?: string;
+    role?: string;
+    daysPast: number;
+    daysFuture: number;
+    query: string;
+  };
+}
+
+interface MergeMetricTypesConfig {
+  enabled: boolean;
+  name: string;
+  targetField: string;
+}
+
+interface MetricTypeMapping {
+  importName: string;
+  jobdoneName: string;
+  targetField: string;
+}
+
+interface AppConfig {
+  isDryRun: boolean;
+  sources: SourceConfig;
+  diskFreeSpaceThresholdInPercent: number;
+  timeZone: string;
+  autoCreateMetricType: boolean;
+  ignoredMissingCostCenters: string[]; // Now typed as string[]
+  mergeMetricTypes: MergeMetricTypesConfig;
+  metricTypeMappings: MetricTypeMapping[];
+}
+
+const appConfigFWG: AppConfig = {
   isDryRun: false,
   sources: {
     activeSource: getEnvVar("SOURCE") as SOURCE | undefined,
     csv: {
       // filePath: "/home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv",
-      filePath: "Group by Day - Correct Table.csv",
+      filePath: "Final - Group by Day - Correct Table.csv",
       importColumns: ["date", "costCenter", "metricType", "value"],
       transformColumns: [
         // {
@@ -77,17 +127,18 @@ const appConfigFWG = {
       schema: getEnvVar("SNOWFLAKE_SCHEMA", true),
       warehouse: getEnvVar("SNOWFLAKE_WAREHOUSE", true),
       role: getEnvVar("SNOWFLAKE_ROLE", true),
-      daysPast: 30,
+      daysPast: 7,
       daysFuture: 0,
       query: `
 SELECT
-    RESTAURANTID AS costCenter,
-    DATUM AS date,
-    SUM(NETTOTAL_TOTALFC) AS value
+    TO_VARCHAR(DATUM, 'YYYY-MM-DD') AS "timestamp",
+    TRIM(TO_VARCHAR(RESTAURANTID)) AS "costCenter",
+    'Umsatz' AS "metricType",
+    SUM(NETTOTAL_TOTALFC) AS "value"
 FROM
     FACTTRANSAKTIONEN
 WHERE
-    DATUM BETWEEN '{fromDate}' AND '{toDate}'
+    DATUM BETWEEN ? AND ?
 GROUP BY
     RESTAURANTID,
     DATUM
@@ -100,6 +151,7 @@ ORDER BY
   diskFreeSpaceThresholdInPercent: 20,
   timeZone: "Europe/Zurich",
   autoCreateMetricType: false,
+  ignoredMissingCostCenters: ["308", "309", "312", "314", "1000"],
   mergeMetricTypes: {
     enabled: true,
     name: "Umsatz",
@@ -147,6 +199,6 @@ ORDER BY
     //   targetField: "actual",
     // },
   ],
-} as const;
+};
 
-export const appConfigs = [appConfigFWG];
+export const appConfigs: AppConfig[] = [appConfigFWG];
