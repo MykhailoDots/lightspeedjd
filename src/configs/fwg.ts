@@ -53,7 +53,6 @@ export const appConfigFWG: AppConfig = {
   mergeMetricTypes: {
     enabled: true,
     name: "Umsatz",
-    targetField: "actual",
   },
   metricTypeMappings: [],
 };

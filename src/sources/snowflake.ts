@@ -65,6 +65,7 @@ export const importFromSnowflake = async (
               costCenter: row.costCenter,
               metricType: row.metricType,
               value: row.value.toString(),
+              targetField: "actual",
             }));
             resolve(mappedMetrics);
           } else {

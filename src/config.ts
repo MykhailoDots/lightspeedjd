@@ -1,5 +1,6 @@
 import { appConfigBindella } from "./configs/bindella";
 import { appConfigFWG } from "./configs/fwg";
+import { appConfigHotelMonopol } from "./configs/hotel-monopol";
 
 export function getEnvVar(name: string, isOptional = false): string {
   const value = process.env[name];
@@ -21,6 +22,8 @@ export function getAppConfig() {
       return appConfigBindella;
     case "FWG":
       return appConfigFWG;
+    case "Hotel Monopol":
+      return appConfigHotelMonopol;
     default:
       throw new Error(`Unknown config file: ${configFile}`);
   }
@@ -61,6 +64,7 @@ export const appEnvironment = {
 export enum SOURCE {
   CSV = "csv",
   SNOWFLAKE = "snowflake",
+  CLOCK = "clock",
 }
 
 export interface TransformColumn {
@@ -71,13 +75,13 @@ export interface TransformColumn {
 
 export interface SourceConfig {
   activeSource: SOURCE | undefined;
-  csv: {
+  csv?: {
     filePath: string;
     importColumns: string[];
     transformColumns: TransformColumn[];
     dateFormat: string;
   };
-  snowflake: {
+  snowflake?: {
     account?: string | null;
     username?: string | null;
     password?: string | null;
@@ -89,18 +93,28 @@ export interface SourceConfig {
     daysFuture: number;
     query: string;
   };
+  clock?: {
+    costCenter: string | null;
+    metricType: string | null;
+    accountId: string | null;
+    subscriptionId: string | null;
+    subscriptionRegion: string | null;
+    baseApi: string | null;
+    apiUser: string | null;
+    apiKey: string | null;
+    isCacheEnabled: boolean;
+    isDoNotDeleteCacheEnabled: boolean;
+  };
 }
 
 export interface MergeMetricTypesConfig {
   enabled: boolean;
   name: string;
-  targetField: string;
 }
 
 export interface MetricTypeMapping {
   importName: string;
   jobdoneName: string;
-  targetField: string;
 }
 
 export interface AppConfig {

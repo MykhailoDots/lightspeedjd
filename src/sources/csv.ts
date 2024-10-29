@@ -94,6 +94,7 @@ export const importFromCsv = async (
       costCenter: m.costCenter,
       metricType: m.metricType,
       value: m.value,
+      targetField: "actual",
     };
   });
 
