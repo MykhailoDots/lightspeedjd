@@ -1,16 +1,16 @@
-import type { MetricImport } from "../index.ts";
-import logger from "../helper/logger.ts";
-import dayjs from "../helper/customDayJs.ts";
-import DigestFetch from "digest-fetch"; // Import the digest-fetch library
-import type { AppConfig } from "../config.ts";
-import fs from "fs/promises"; // Import Node.js file system module for promises
+import type { MetricImport } from "../index";
+import logger from "../helper/logger";
+import dayjs from "../helper/customDayJs";
+import DigestFetch from "digest-fetch";
+import { appEnvironment, type ClockSourceConfig } from "../config";
+import fs from "fs/promises";
 import path from "path";
 
-const clockStateFilePath = path.resolve(process.cwd(), "clock-state.json");
-
 interface ClockState {
-  lastUpdatedAt?: string; // Optional in case it doesn't exist
+  lastUpdatedAt?: string;
 }
+
+const clockStateFilePath = path.resolve(process.cwd(), "clock-state.json");
 
 // Helper function to read the clock state
 const readClockState = async (): Promise<ClockState> => {
@@ -19,7 +19,6 @@ const readClockState = async (): Promise<ClockState> => {
     return JSON.parse(data) as ClockState;
   } catch (error: any) {
     logger.warn(`Unable to read clock-state.json: ${error.message}`);
-    // Return an empty object if the file doesn't exist or can't be read
     return {};
   }
 };
@@ -37,41 +36,40 @@ const writeClockState = async (lastUpdatedAt: string) => {
   }
 };
 
-// Helper function to sleep for a given number of milliseconds
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export const importFromClock = async (
-  appConfig: AppConfig
+  config: ClockSourceConfig,
+  timeZone: string,
 ): Promise<MetricImport[]> => {
-  logger.info("Fetching data from Clock API...");
+  logger.info(`[${config.name}] Fetching data from Clock API...`);
 
   const metricsToImport: MetricImport[] = [];
-  const clockConfig = appConfig.sources.clock;
 
-  if (!clockConfig?.apiUser || !clockConfig?.apiKey) {
-    throw new Error("API user or API key not configured in appConfig");
+  if (!config.apiUser || !config.apiKey) {
+    throw new Error(`[${config.name}] API user or API key not configured`);
   }
 
   // Set up digest authentication
-  const client = new DigestFetch(clockConfig?.apiUser, clockConfig?.apiKey);
+  const client = new DigestFetch(config.apiUser, config.apiKey);
 
   // Read lastUpdatedAt from clock-state.json
   const clockState = await readClockState();
-  const lastUpdatedAt = clockState.lastUpdatedAt; // May be undefined if the file doesn't exist
+  const lastUpdatedAt = clockState.lastUpdatedAt;
 
-  const api = `https://${clockConfig.subscriptionRegion}.clock-software.com/${clockConfig.baseApi}/${clockConfig.subscriptionId}/${clockConfig.accountId}`;
+  const api = `https://${config.subscriptionRegion}.clock-software.com/${config.baseApi}/${config.subscriptionId}/${config.accountId}`;
   const bookingsApi = `${api}/bookings`;
 
   // Define the cache directory path
   const cacheDir = path.resolve(process.cwd(), "cache");
 
   // Create the cache directory if it doesn't exist
-  if (appConfig?.sources?.clock?.isCacheEnabled) {
+  if (config.isCacheEnabled) {
     try {
       await fs.mkdir(cacheDir, { recursive: true });
-      logger.info(`Cache directory ensured at ${cacheDir}`);
+      logger.info(`[${config.name}] Cache directory ensured at ${cacheDir}`);
     } catch (error: any) {
-      logger.error(`Error creating cache directory: ${error.message}`);
+      logger.error(
+        `[${config.name}] Error creating cache directory: ${error.message}`
+      );
     }
   }
 
@@ -81,10 +79,12 @@ export const importFromClock = async (
 
     if (lastUpdatedAt) {
       newBookingsUrl += `?updated_at.gteq=${encodeURIComponent(lastUpdatedAt)}`;
-      logger.info(`Fetching updated bookings from ${newBookingsUrl}`);
+      logger.info(
+        `[${config.name}] Fetching updated bookings from ${newBookingsUrl}`
+      );
     } else {
       logger.info(
-        `Fetching all bookings (no updated_at filter applied) from ${newBookingsUrl}`
+        `[${config.name}] Fetching all bookings (no updated_at filter applied) from ${newBookingsUrl}`
       );
     }
 
@@ -96,32 +96,31 @@ export const importFromClock = async (
 
     let bookingIds: number[] = await response.json();
 
-    console.log(`Found ${bookingIds.length} bookings`);
-    console.debug(`Booking IDs: ${bookingIds.join(", ")}`);
-
-    // if (appConfig.isDryRun) {
-    //   bookingIds = bookingIds.slice(0, 5);
-    // }
+    logger.info(`[${config.name}] Found ${bookingIds.length} bookings`);
+    logger.debug(`[${config.name}] Booking IDs: ${bookingIds.join(", ")}`);
 
     // Process each booking ID
     for (const bookingId of bookingIds) {
       let booking: any;
-
-      // Path to the cache file for this booking
       const cacheFilePath = path.join(cacheDir, `booking_${bookingId}.json`);
 
-      if (appConfig?.sources?.clock?.isCacheEnabled) {
-        // Check if the booking data is in cache
+      if (config.isCacheEnabled) {
         try {
           const cachedData = await fs.readFile(cacheFilePath, "utf-8");
           booking = JSON.parse(cachedData);
-          logger.info(`Loaded booking ${bookingId} from cache`);
+          logger.info(
+            `[${config.name}] Loaded booking ${bookingId} from cache`
+          );
         } catch (error) {
           // Cache miss or error reading cache, proceed to fetch from API
-          logger.info(`Cache miss for booking ${bookingId}, fetching from API`);
+          logger.info(
+            `[${config.name}] Cache miss for booking ${bookingId}, fetching from API`
+          );
 
           const bookingUrl = `${bookingsApi}/${bookingId}`;
-          logger.info(`Fetching booking details from ${bookingUrl}`);
+          logger.info(
+            `[${config.name}] Fetching booking details from ${bookingUrl}`
+          );
 
           const bookingResponse = await client.fetch(bookingUrl, {
             method: "GET",
@@ -137,12 +136,13 @@ export const importFromClock = async (
 
           // Save the booking data to cache
           await fs.writeFile(cacheFilePath, JSON.stringify(booking, null, 2));
-          logger.info(`Cached booking ${bookingId} data`);
+          logger.info(`[${config.name}] Cached booking ${bookingId} data`);
         }
       } else {
-        // Cache is not enabled, fetch from API
         const bookingUrl = `${bookingsApi}/${bookingId}`;
-        logger.info(`Fetching booking details from ${bookingUrl}`);
+        logger.info(
+          `[${config.name}] Fetching booking details from ${bookingUrl}`
+        );
 
         const bookingResponse = await client.fetch(bookingUrl, {
           method: "GET",
@@ -157,8 +157,12 @@ export const importFromClock = async (
         booking = await bookingResponse.json();
       }
 
-      console.debug(
-        `Processing booking ${bookingId}: ${JSON.stringify(booking, null, 2)}`
+      logger.debug(
+        `[${config.name}] Processing booking ${bookingId}: ${JSON.stringify(
+          booking,
+          null,
+          2
+        )}`
       );
 
       /**
@@ -176,15 +180,13 @@ export const importFromClock = async (
        * metricType: scheduled = 'expected'
        */
 
-      // Calculate the number of days the user stays
+      // Calculate stay duration
       const arrivalDate = dayjs(booking.arrival);
       const departureDate = dayjs(booking.departure);
       const stayDuration = departureDate.diff(arrivalDate, "day");
 
-      const metricType = appConfig?.sources?.clock?.metricType;
-
-      if (!metricType) {
-        throw new Error("Metric type not configured in appConfig");
+      if (!config.metricType) {
+        throw new Error(`[${config.name}] Metric type not configured`);
       }
 
       // Determine the targetField based on the booking status
@@ -197,78 +199,84 @@ export const importFromClock = async (
         continue; // Skip invalid statuses like 'canceled' or 'no_show'
       }
 
-      const costCenter = appConfig?.sources?.clock?.costCenter;
-      if (!costCenter) {
-        throw new Error("Cost center not configured in appConfig");
+      if (!config.costCenter) {
+        throw new Error(`[${config.name}] Cost center not configured`);
       }
+
+      // Apply metric type mapping if configured
+      const metricTypeMapping = config.metricTypeMappings.find(
+        (m) => m.importName === config.metricType
+      );
+      const finalMetricType = metricTypeMapping
+        ? metricTypeMapping.jobdoneName
+        : config.metricType;
 
       // Loop through each day of the stay and create a metric
       for (let i = 0; i < stayDuration; i++) {
         const currentDate = arrivalDate
           .add(i, "day")
-          .tz(appConfig.timeZone)
+          .tz(timeZone)
+          .utc()
           .toISOString();
 
         // Check if metricsToImport already has a metric for this day
         let existingMetric = metricsToImport.find(
           (metric) =>
             metric.timestampCompatibleWithGranularity === currentDate &&
-            metric.costCenter === costCenter &&
+            metric.costCenter === config.costCenter &&
             metric.targetField === targetField
         );
 
         if (existingMetric) {
-          console.log("Incrementing existing metric");
-          // Increment the value if the metric already exists
+          logger.debug(
+            `[${config.name}] Incrementing existing metric for ${currentDate}`
+          );
           existingMetric.value = (
             parseInt(existingMetric.value) + 1
           ).toString();
         } else {
-          // Create a new metric if it doesn't exist
           const metric: MetricImport = {
             timestampCompatibleWithGranularity: currentDate,
-            costCenter: costCenter,
-            metricType: metricType,
+            costCenter: config.costCenter,
+            metricType: finalMetricType,
             value: "1",
             targetField: targetField,
           };
           metricsToImport.push(metric);
         }
       }
-
-      // Sleep for 500 ms before fetching the next booking
-      //   await sleep(500);
     }
 
-    // Update the lastUpdatedAt to the current time after successful import
-    const newLastUpdatedAt = dayjs().toISOString();
-
-    if (!appConfig.isDryRun) {
+    // Update the lastUpdatedAt timestamp
+    if (!appEnvironment.isDryRun) {
+      const newLastUpdatedAt = dayjs().toISOString();
       await writeClockState(newLastUpdatedAt);
     }
 
-    // Clear the cache if cache is enabled and we do not skip deletion
-    if (
-      appConfig?.sources?.clock?.isCacheEnabled &&
-      !appConfig?.sources?.clock?.isDoNotDeleteCacheEnabled
-    ) {
+    // Clear cache if enabled and not explicitly preserved
+    if (config.isCacheEnabled && !config.isDoNotDeleteCacheEnabled) {
       try {
         const files = await fs.readdir(cacheDir);
         for (const file of files) {
           const filePath = path.join(cacheDir, file);
           await fs.unlink(filePath);
         }
-        logger.info(`Cache cleared from ${cacheDir}`);
+        logger.info(`[${config.name}] Cache cleared from ${cacheDir}`);
       } catch (error: any) {
-        logger.error(`Error clearing cache directory: ${error.message}`);
+        logger.error(
+          `[${config.name}] Error clearing cache directory: ${error.message}`
+        );
       }
     }
 
-    console.table(metricsToImport);
-
+    logger.info(
+      `[${config.name}] Successfully imported ${metricsToImport.length} metrics`
+    );
     return metricsToImport;
   } catch (error: any) {
-    logger.error(`Error fetching data from Clock API: ${error.message}`);
+    logger.error(
+      `[${config.name}] Error fetching data from Clock API: ${error.message}`
+    );
     throw error;
   }
 };

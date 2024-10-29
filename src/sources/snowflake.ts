@@ -2,84 +2,105 @@ import snowflake from "snowflake-sdk";
 import dayjs from "dayjs";
 import type { MetricImport } from "..";
 import logger from "../helper/logger";
-import type { AppConfig } from "../config";
+import type { SnowflakeSourceConfig } from "../config";
 
-export const createSnowflakeConnection = (appConfig: AppConfig) => {
+export const createSnowflakeConnection = (config: SnowflakeSourceConfig) => {
   return snowflake.createConnection({
-    account: appConfig.sources.snowflake.account || "",
-    username: appConfig.sources.snowflake.username || "",
-    password: appConfig.sources.snowflake.password || "",
-    database: appConfig.sources.snowflake.database || "",
-    schema: appConfig.sources.snowflake.schema || "",
-    warehouse: appConfig.sources.snowflake.warehouse || "",
-    role: appConfig.sources.snowflake.role || "",
+    account: config.account || "",
+    username: config.username || "",
+    password: config.password || "",
+    database: config.database || "",
+    schema: config.schema || "",
+    warehouse: config.warehouse || "",
+    role: config.role || "",
   });
 };
 
 export const importFromSnowflake = async (
-  appConfig: AppConfig
+  config: SnowflakeSourceConfig,
+  timeZone: string
 ): Promise<MetricImport[]> => {
-  const connection = createSnowflakeConnection(appConfig);
+  const connection = createSnowflakeConnection(config);
+
   await new Promise((resolve, reject) =>
     connection.connect((err, conn) => {
       if (err) {
-        logger.error("Unable to connect: " + err.message);
+        logger.error(`[${config.name}] Unable to connect: ${err.message}`);
         reject(err);
       } else {
-        logger.info("Successfully connected to Snowflake.");
+        logger.info(`[${config.name}] Successfully connected to Snowflake.`);
         resolve(conn);
       }
     })
   );
 
-  // Calculate the dynamic dates with timezone adjustments
   const fromDate = dayjs()
-    .subtract(appConfig.sources.snowflake.daysPast, "day")
-    .tz(appConfig.timeZone)
+    .subtract(config.daysPast, "day")
+    .tz(timeZone)
     .startOf("day")
     .format("YYYY-MM-DD HH:mm:ss");
+
   const toDate = dayjs()
-    .add(appConfig.sources.snowflake.daysFuture, "day")
-    .tz(appConfig.timeZone)
+    .add(config.daysFuture, "day")
+    .tz(timeZone)
     .endOf("day")
     .format("YYYY-MM-DD HH:mm:ss");
 
-  logger.info(`Querying Snowflake from ${fromDate} to ${toDate}`);
+  logger.info(
+    `[${config.name}] Querying Snowflake from ${fromDate} to ${toDate}`
+  );
 
   return new Promise((resolve, reject) => {
-    const query = appConfig.sources.snowflake.query;
     connection.execute({
-      sqlText: query,
+      sqlText: config.query,
       binds: [fromDate, toDate],
       complete: (err, stmt, rows) => {
         if (err) {
-          console.error("Failed to execute query: " + err.message);
+          logger.error(
+            `[${config.name}] Failed to execute query: ${err.message}`
+          );
           reject(err);
         } else {
           if (rows) {
-            const mappedMetrics: MetricImport[] = rows.map((row) => ({
-              timestampCompatibleWithGranularity: dayjs
-                .tz(row.timestamp, "YYYY-MM-DD", appConfig.timeZone)
-                .utc()
-                .toISOString(),
-              costCenter: row.costCenter,
-              metricType: row.metricType,
-              value: row.value.toString(),
-              targetField: "actual",
-            }));
+            // Apply metric type mappings if configured
+            const mappedMetrics: MetricImport[] = rows.map((row) => {
+              // Check if there's a mapping for this metric type
+              const metricTypeMapping = config.metricTypeMappings.find(
+                (m) => m.importName === row.metricType
+              );
+
+              return {
+                timestampCompatibleWithGranularity: dayjs
+                  .tz(row.timestamp, "YYYY-MM-DD", timeZone)
+                  .utc()
+                  .toISOString(),
+                costCenter: row.costCenter,
+                // Use mapped name if exists, otherwise use original
+                metricType: metricTypeMapping
+                  ? metricTypeMapping.jobdoneName
+                  : row.metricType,
+                value: row.value.toString(),
+                targetField: "actual",
+              };
+            });
+
+            logger.info(
+              `[${config.name}] Successfully retrieved ${mappedMetrics.length} metrics from Snowflake`
+            );
             resolve(mappedMetrics);
           } else {
-            console.error("No data returned from the query");
+            logger.warn(`[${config.name}] No data returned from the query`);
             resolve([]);
           }
         }
+
         connection.destroy((destroyErr) => {
           if (destroyErr) {
-            console.error(
-              "Failed to destroy connection: " + destroyErr.message
+            logger.error(
+              `[${config.name}] Failed to destroy connection: ${destroyErr.message}`
             );
           } else {
-            console.log("Connection successfully destroyed.");
+            logger.info(`[${config.name}] Connection successfully destroyed.`);
           }
         });
       },

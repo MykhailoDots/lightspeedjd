@@ -30,6 +30,7 @@ export function getAppConfig() {
 }
 
 export const appEnvironment = {
+  isDryRun: getEnvVar("IS_DRY_RUN") === "false" ? false : true,
   cronTime: getEnvVar("CRON_TIME"),
   organization: {
     id: getEnvVar("JOBDONE_ORGANIZATION_ID"),
@@ -61,55 +62,11 @@ export const appEnvironment = {
   },
 } as const;
 
-export enum SOURCE {
-  CSV = "csv",
-  SNOWFLAKE = "snowflake",
-  CLOCK = "clock",
-}
-
+export type SOURCE_TYPE = "csv" | "snowflake" | "clock";
 export interface TransformColumn {
   outputColumn: string;
   operation: "add" | "subtract";
   operands: string[];
-}
-
-export interface SourceConfig {
-  activeSource: SOURCE | undefined;
-  csv?: {
-    filePath: string;
-    importColumns: string[];
-    transformColumns: TransformColumn[];
-    dateFormat: string;
-  };
-  snowflake?: {
-    account?: string | null;
-    username?: string | null;
-    password?: string | null;
-    database?: string | null;
-    schema?: string | null;
-    warehouse?: string | null;
-    role?: string | null;
-    daysPast: number;
-    daysFuture: number;
-    query: string;
-  };
-  clock?: {
-    costCenter: string | null;
-    metricType: string | null;
-    accountId: string | null;
-    subscriptionId: string | null;
-    subscriptionRegion: string | null;
-    baseApi: string | null;
-    apiUser: string | null;
-    apiKey: string | null;
-    isCacheEnabled: boolean;
-    isDoNotDeleteCacheEnabled: boolean;
-  };
-}
-
-export interface MergeMetricTypesConfig {
-  enabled: boolean;
-  name: string;
 }
 
 export interface MetricTypeMapping {
@@ -117,13 +74,64 @@ export interface MetricTypeMapping {
   jobdoneName: string;
 }
 
-export interface AppConfig {
-  isDryRun: boolean;
-  sources: SourceConfig;
-  diskFreeSpaceThresholdInPercent: number;
-  timeZone: string;
-  ignoredMissingCostCenters: string[]; // Now typed as string[]
+export interface MergeMetricTypesConfig {
+  enabled: boolean;
+  name: string;
+}
+
+export interface BaseSourceConfig {
+  name: string;
+  type: SOURCE_TYPE;
+  enabled: boolean;
+  ignoredMissingCostCenters: string[];
   autoCreateMetricType: boolean;
   mergeMetricTypes: MergeMetricTypesConfig;
   metricTypeMappings: MetricTypeMapping[];
+}
+
+export interface CSVSourceConfig extends BaseSourceConfig {
+  type: "csv";
+  filePath: string;
+  importColumns: string[];
+  transformColumns: TransformColumn[];
+  dateFormat: string;
+}
+
+export interface SnowflakeSourceConfig extends BaseSourceConfig {
+  type: "snowflake";
+  account?: string | null;
+  username?: string | null;
+  password?: string | null;
+  database?: string | null;
+  schema?: string | null;
+  warehouse?: string | null;
+  role?: string | null;
+  daysPast: number;
+  daysFuture: number;
+  query: string;
+}
+
+export interface ClockSourceConfig extends BaseSourceConfig {
+  type: "clock";
+  costCenter: string | null;
+  metricType: string | null;
+  accountId: string | null;
+  subscriptionId: string | null;
+  subscriptionRegion: string | null;
+  baseApi: string | null;
+  apiUser: string | null;
+  apiKey: string | null;
+  isCacheEnabled: boolean;
+  isDoNotDeleteCacheEnabled: boolean;
+}
+
+export type SourceConfigType =
+  | CSVSourceConfig
+  | SnowflakeSourceConfig
+  | ClockSourceConfig;
+
+export interface AppConfig {
+  sources: SourceConfigType[];
+  diskFreeSpaceThresholdInPercent: number;
+  timeZone: string;
 }
