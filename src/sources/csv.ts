@@ -116,6 +116,9 @@ export const importFromCsv = async (
   if (!config.dateFormat) {
     throw new Error(`[${config.name}] Date format is not configured`);
   }
+  if (!config.targetField) {
+    logger.warn(`[${config.name}] Target field not specified, defaulting to "actual"`);
+  }
 
   logger.info(`[${config.name}] Importing CSV from ${config.filePath}`);
 
@@ -143,7 +146,7 @@ export const importFromCsv = async (
         ? metricTypeMapping.jobdoneName
         : m.metricType,
       value: m.value,
-      targetField: "actual",
+      targetField: config.targetField || "actual",
     };
   });
 

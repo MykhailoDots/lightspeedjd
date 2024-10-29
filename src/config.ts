@@ -87,6 +87,7 @@ export interface BaseSourceConfig {
   autoCreateMetricType: boolean;
   mergeMetricTypes: MergeMetricTypesConfig;
   metricTypeMappings: MetricTypeMapping[];
+  targetField: string;
 }
 
 export interface CSVSourceConfig extends BaseSourceConfig {

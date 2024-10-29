@@ -8,6 +8,7 @@ export const appConfigBindella: AppConfig = {
       enabled: true,
       ignoredMissingCostCenters: [],
       autoCreateMetricType: false,
+      targetField: "actual",
       mergeMetricTypes: {
         enabled: true,
         name: "Umsatz",

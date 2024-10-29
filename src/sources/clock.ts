@@ -96,6 +96,9 @@ export const importFromClock = async (
 
     let bookingIds: number[] = await response.json();
 
+    // if (appEnvironment.isDryRun) {
+    //   bookingIds = bookingIds.slice(0, 5);
+    // }
     logger.info(`[${config.name}] Found ${bookingIds.length} bookings`);
     logger.debug(`[${config.name}] Booking IDs: ${bookingIds.join(", ")}`);
 

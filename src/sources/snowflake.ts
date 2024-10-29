@@ -80,7 +80,7 @@ export const importFromSnowflake = async (
                   ? metricTypeMapping.jobdoneName
                   : row.metricType,
                 value: row.value.toString(),
-                targetField: "actual",
+                targetField: config.targetField || "actual",
               };
             });
 
