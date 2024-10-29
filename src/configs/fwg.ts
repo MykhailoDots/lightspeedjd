@@ -35,14 +35,14 @@ WHERE DATUM BETWEEN ? AND ?
 GROUP BY RESTAURANTID, DATUM
 ORDER BY RESTAURANTID, DATUM;
       `,
-    } satisfies SnowflakeSourceConfig,
+    },
     {
       name: "monthly_costs",
       type: "snowflake",
       enabled: true,
       ignoredMissingCostCenters: [],
       autoCreateMetricType: false,
-      targetField: 'actual',
+      targetField: 'targetOrBudget',
       mergeMetricTypes: {
         enabled: true,
         name: "Umsatz",
@@ -73,15 +73,15 @@ WITH filled_gaps AS (
 ),
 date_boundaries AS (
     SELECT
-        MIN(GUELTIG_AB) as start_date,
-        COALESCE(MAX(NEXT_GUELTIG_AB), CURRENT_DATE()) as end_date
+        MIN(GUELTIG_AB) as startDate,
+        COALESCE(MAX(NEXT_GUELTIG_AB), CURRENT_DATE()) as endDate
     FROM filled_gaps
 ),
 date_spine AS (
     SELECT DISTINCT
-        DATEADD(DAY, seq4(), (SELECT start_date FROM date_boundaries)::DATE) AS date
+        DATEADD(DAY, seq4(), (SELECT startDate FROM date_boundaries)::DATE) AS date
     FROM TABLE(GENERATOR(ROWCOUNT => 3650))
-    WHERE date <= (SELECT end_date FROM date_boundaries)
+    WHERE date <= (SELECT endDate FROM date_boundaries)
 ),
 valid_periods AS (
     SELECT 
@@ -109,8 +109,8 @@ unpivoted_values AS (
             WHEN 'DONNERSTAG' THEN 4
             WHEN 'FREITAG' THEN 5
             WHEN 'SAMSTAG' THEN 6
-            WHEN 'SONNTAG' THEN 0  -- Changed from 7 to 0 to match Snowflake's DAYOFWEEK
-        END as weekday_number
+            WHEN 'SONNTAG' THEN 0
+        END as weekdayNumber
     FROM valid_periods
     UNPIVOT (
         value FOR weekday IN (
@@ -125,12 +125,12 @@ unpivoted_values AS (
     )
 )
 SELECT
-    TO_CHAR(uv.date, 'YYYY-MM-DD') AS date,
-    uv.OUTLET_ID AS costCenter,
-    'Umsatz Stellenplan' AS umsatzStellenPlan,
-    uv.value
+    TO_CHAR(uv.date, 'YYYY-MM-DD') AS "timestamp",
+    uv.OUTLET_ID AS "costCenter",
+    'Umsatz Stellenplan' AS "metricType",
+    uv.value AS "value"
 FROM unpivoted_values uv
-WHERE DAYOFWEEK(uv.date) = uv.weekday_number
+WHERE DAYOFWEEK(uv.date) = uv.weekdayNumber
 ORDER BY uv.OUTLET_ID, uv.date;
       `,
     },
