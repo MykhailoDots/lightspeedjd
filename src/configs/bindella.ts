@@ -1,7 +1,7 @@
 import { getEnvVar, type AppConfig, type SOURCE } from "../config";
 
 export const appConfigBindella: AppConfig = {
-  isDryRun: false,
+  isDryRun: true,
   sources: {
     activeSource: getEnvVar("SOURCE") as SOURCE | undefined,
     csv: {
@@ -40,48 +40,39 @@ export const appConfigBindella: AppConfig = {
   mergeMetricTypes: {
     enabled: true,
     name: "Umsatz",
-    targetField: "actual",
   },
   metricTypeMappings: [
     {
       importName: "Verkauf Bier",
       jobdoneName: "Bier",
-      targetField: "actual",
     },
     {
       importName: "Verkauf Kaffee/Tee/Ovo",
       jobdoneName: "Kaffee/Tee/Ovo",
-      targetField: "actual",
     },
     {
       importName: "Verkauf Küche",
       jobdoneName: "Küche",
-      targetField: "actual",
     },
     {
       importName: "Verkauf Mineralwasser",
       jobdoneName: "Mineralwasser",
-      targetField: "actual",
     },
     {
       importName: "Verkauf Pizza",
       jobdoneName: "Pizza",
-      targetField: "actual",
     },
     {
       importName: "Verkauf Spirituosen/Liq.",
       jobdoneName: "Spirituosen/Liq.",
-      targetField: "actual",
     },
     {
       importName: "Verkauf Vinoteca",
       jobdoneName: "Vinoteca",
-      targetField: "actual",
     },
     {
       importName: "Verkauf Weine",
       jobdoneName: "Weine",
-      targetField: "actual",
     },
   ],
 };
