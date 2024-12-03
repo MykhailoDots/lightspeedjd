@@ -92,7 +92,7 @@ unpivoted_values AS (
     SELECT
         date,
         OUTLET_ID,
-        'Umsatz Stellenplan' as metricType,
+        'Umsatz' as metricType,
         CASE DAYOFWEEK(date)
             WHEN 0 THEN SONNTAG
             WHEN 1 THEN MONTAG
@@ -181,7 +181,7 @@ monthly_values AS (
 SELECT 
     TO_CHAR(date, 'YYYY-MM-DD') as "timestamp",
     OUTLET_ID as "costCenter",
-    'Monatsziel' as "metricType",
+    'Umsatz' as "metricType",
     daily_target as "value"
 FROM monthly_values
 WHERE latest_target = 1
