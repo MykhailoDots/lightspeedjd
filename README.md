@@ -7,11 +7,21 @@
 3) Start Services
 
 ```bash
-sudo docker compose -f docker-compose.yml up --build --force-recreate -d
-sudo docker compose -f docker-compose.yml logs -f
+sudo docker compose up --build --force-recreate -d
+sudo docker compose logs -f
 
 sudo docker exec -it jobdone-metric-importer /bin/sh
 
-sudo docker compose -f docker-compose.yml down
-sudo docker compose -f docker-compose.yml down -v
+sudo docker compose down
+sudo docker compose down -v
+
+### Bindella has different file
+
+sudo docker compose -f docker-compose.bindella.yml up --build --force-recreate -d
+sudo docker compose -f docker-compose.bindella.yml logs -f
+
+sudo docker exec -it jobdone-metric-importer /bin/sh
+
+sudo docker compose -f docker-compose.bindella.yml down
+sudo docker compose -f docker-compose.bindella.yml down -v
 ```

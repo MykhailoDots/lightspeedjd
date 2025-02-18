@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  jobdone-metric-importer:
+    container_name: jobdone-metric-importer
+    build:
+      context: .
+      no_cache: true
+    environment:
+      - NODE_ENV=production
+    command: bun run start
+    volumes:
+      - jobdone-metric-importer-logs:/app/logs
+      - /home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv:/app/JD_Umsatz_Gastro.csv:ro
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m" # Max size of each log file
+        max-file: "5" # Max number of log files to retain
+
+volumes:
+  jobdone-metric-importer-logs:
+  jobdone-metric-importer-import-file:
