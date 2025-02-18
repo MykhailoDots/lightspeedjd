@@ -1,4 +1,4 @@
-import { type CSVSourceConfig, type TransformColumn } from "../config";
+import { type AppConfig, type CSVSourceConfig, type TransformColumn } from "../config";
 import { parse } from "csv-parse/sync";
 import fs from "fs";
 import type { MetricImport } from "..";
@@ -60,12 +60,10 @@ const parseCsv = async (
   config: CSVSourceConfig
 ): Promise<MetricCSVImport[]> => {
   try {
-    // Check if file exists
     if (!fs.existsSync(config.filePath)) {
       throw new Error(`CSV file not found: ${config.filePath}`);
     }
 
-    // Read and parse CSV file
     const csv = fs.readFileSync(config.filePath, "utf8");
     let parsedCsv = parse(csv, {
       columns: [...config.importColumns],
@@ -73,7 +71,6 @@ const parseCsv = async (
       trim: true,
     });
 
-    // Apply transformations if configured
     if (config.transformColumns && config.transformColumns.length > 0) {
       logger.info(
         `[${config.name}] Applying ${config.transformColumns.length} transformations to CSV data`
@@ -90,7 +87,6 @@ const parseCsv = async (
       return [];
     }
 
-    // Map to expected format
     return parsedCsv.map((row: any) => ({
       date: row.date,
       costCenter: row.costCenter,
@@ -104,9 +100,9 @@ const parseCsv = async (
 };
 
 export const importFromCsv = async (
-  config: CSVSourceConfig
+  config: CSVSourceConfig,
+  timeZone: string,
 ): Promise<MetricImport[]> => {
-  // Validate configuration
   if (!config.filePath) {
     throw new Error(`[${config.name}] Source file path is not set`);
   }
@@ -116,8 +112,10 @@ export const importFromCsv = async (
   if (!config.dateFormat) {
     throw new Error(`[${config.name}] Date format is not configured`);
   }
-  if (!config.targetField) {
-    logger.warn(`[${config.name}] Target field not specified, defaulting to "actual"`);
+  if (!config.metricTypeCategory) {
+    logger.warn(
+      `[${config.name}] Metric type category not specified, defaulting to "Ist"`
+    );
   }
 
   logger.info(`[${config.name}] Importing CSV from ${config.filePath}`);
@@ -128,25 +126,22 @@ export const importFromCsv = async (
     `[${config.name}] Found ${metricsToImport.length} records in CSV`
   );
 
-  // Map to final format and apply metric type mappings
   const mappedMetricsToImport: MetricImport[] = metricsToImport.map((m) => {
-    // Check if there's a mapping for this metric type
     const metricTypeMapping = config.metricTypeMappings.find(
       (mapping) => mapping.importName === m.metricType
     );
 
     return {
       timestampCompatibleWithGranularity: dayjs
-        .tz(m.date, config.dateFormat)
+        .tz(m.date, config.dateFormat, timeZone)
         .utc()
         .toISOString(),
       costCenter: m.costCenter,
-      // Use mapped name if exists, otherwise use original
       metricType: metricTypeMapping
         ? metricTypeMapping.jobdoneName
         : m.metricType,
       value: m.value,
-      targetField: config.targetField || "actual",
+      metricTypeCategory: config.metricTypeCategory || "Ist",
     };
   });
 

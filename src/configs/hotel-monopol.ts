@@ -9,7 +9,7 @@ export const appConfigHotelMonopol: AppConfig = {
       enabled: true,
       ignoredMissingCostCenters: [],
       autoCreateMetricType: false,
-      targetField: 'not-applicable',
+      metricTypeCategory: "not-applicable",
       mergeMetricTypes: {
         enabled: false,
         name: "",

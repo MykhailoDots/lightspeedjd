@@ -2,15 +2,17 @@ mutation createMetricType(
   $input: CreateMetricTypeInput = {
     colorCode: ""
     displayDecimals: 10
-    displayUnit: ""
-    granularity: ""
+    displayUnit: CURRENCY
+    granularity: FIFTEEN_MINUTE
     icon: ""
-    isActualEditable: false
-    isBudgetEditable: false
-    isForecastedEditable: false
-    isScheduledEditable: false
     name: ""
-    targetOrBudgetType: ""
+    type: COST
+    metricTypeCategories: {
+      isEditable: false
+      name: ""
+      showInPeriods: CURRENT
+      type: ACTUAL
+    }
   }
 ) {
   jobdoneCustom1 {
@@ -21,12 +23,8 @@ mutation createMetricType(
       granularity
       icon
       id
-      isActualEditable
-      isBudgetEditable
-      isForecastedEditable
-      isScheduledEditable
       name
-      targetOrBudgetType
+      type
     }
   }
 }
