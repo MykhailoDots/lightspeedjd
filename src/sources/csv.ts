@@ -130,14 +130,17 @@ export const importFromCsv = async (
     const metricTypeMapping = config.metricTypeMappings.find(
       (mapping) => mapping.importName === m.metricType
     );
-
     return {
       timestampCompatibleWithGranularity: dayjs
         .tz(m.date, config.dateFormat, timeZone)
         .utc()
         .toISOString(),
       costCenter: m.costCenter,
-      metricType: metricTypeMapping
+      // Force the metric type to be the merge metric type if enabled,
+      // otherwise use the mapped CSV value.
+      metricType: config.mergeMetricTypes.enabled
+        ? config.mergeMetricTypes.name
+        : metricTypeMapping
         ? metricTypeMapping.jobdoneName
         : m.metricType,
       value: m.value,
