@@ -47,7 +47,8 @@ export const appConfigBindella: AppConfig = {
           jobdoneName: "Weine",
         },
       ],
-      filePath: "/home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv",
+      // filePath: "/home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv",
+      filePath: "JD_Umsatz_Gastro.csv",
       importColumns: ["date", "costCenter", "metricType", "value", "tax"],
       transformColumns: [
         {

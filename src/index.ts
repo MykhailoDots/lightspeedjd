@@ -49,7 +49,6 @@ const validateMetricsForSource = async (
 
   const existingCostCenterIdsByNameMap: Map<string, string> = new Map();
   const existingMetricTypesIdsByNameMap: Map<string, string> = new Map();
-  const existingMetricTypeCategoryIdsByNameMap: Map<string, string> = new Map();
   const metricTypeMappingsByNameMap = new Map();
 
   existingCostCenters.costCenter.forEach((c) => {
@@ -57,11 +56,6 @@ const validateMetricsForSource = async (
   });
   renamedExistingMetricTypes.forEach((m) => {
     existingMetricTypesIdsByNameMap.set(m.name, m.id);
-  });
-  existingMetricTypes.metricType.forEach((mt) => {
-    mt.metricTypeCategories.forEach((cat) => {
-      existingMetricTypeCategoryIdsByNameMap.set(cat.name, cat.id);
-    });
   });
   sourceConfig.metricTypeMappings.forEach((m) => {
     metricTypeMappingsByNameMap.set(m.importName, m.jobdoneName);
@@ -83,28 +77,6 @@ const validateMetricsForSource = async (
     (m) => !existingMetricTypes.metricType.some((mt) => mt.name === m)
   );
 
-  // Validate that each metric import has a valid metric type category
-  const notExistingMetricTypeCategoryNames = new Set<string>();
-  metricsToImport.forEach((m) => {
-    // Determine the effective metric type name
-    const effectiveMetricTypeName = sourceConfig.mergeMetricTypes.enabled
-      ? sourceConfig.mergeMetricTypes.name
-      : m.metricType;
-    // Find the metric type object
-    const metricTypeObj = existingMetricTypes.metricType.find(
-      (mt) => mt.name === effectiveMetricTypeName
-    );
-    if (metricTypeObj) {
-      if (
-        !metricTypeObj.metricTypeCategories.some(
-          (cat) => cat.name === m.metricTypeCategory
-        )
-      ) {
-        notExistingMetricTypeCategoryNames.add(m.metricTypeCategory);
-      }
-    }
-  });
-
   if (notExistingCostCenterNames.length > 0) {
     const message = `[${
       sourceConfig.name
@@ -125,14 +97,49 @@ const validateMetricsForSource = async (
     await sendMessageToDiscord({ message });
   }
 
+  // Validate metric type category for each metric import
+  // (We now need to ensure that the category belongs to the effective metric type.)
+  const notExistingMetricTypeCategoryNames = new Set<string>();
+  metricsToImport.forEach((m) => {
+    // Determine the effective metric type name.
+    // When mergeMetricTypes is enabled, we always require the merge metric type.
+    const effectiveMetricTypeName = sourceConfig.mergeMetricTypes.enabled
+      ? sourceConfig.mergeMetricTypes.name
+      : m.metricType;
+
+    // Find all metric types matching this name.
+    const matchingMetricTypes = existingMetricTypes.metricType.filter(
+      (mt) => mt.name === effectiveMetricTypeName
+    );
+    if (matchingMetricTypes.length > 1) {
+      // Metric type names should be unique.
+      throw new Error(
+        `[${sourceConfig.name}] Multiple metric types found with name '${effectiveMetricTypeName}'. Metric type names must be unique.`
+      );
+    }
+    if (matchingMetricTypes.length === 0) {
+      // This error will be handled by the earlier check.
+      return;
+    }
+    const metricTypeObj = matchingMetricTypes[0];
+    // Now check if the metric import's category exists within this metric type.
+    if (
+      !metricTypeObj.metricTypeCategories.some(
+        (cat) => cat.name === m.metricTypeCategory
+      )
+    ) {
+      notExistingMetricTypeCategoryNames.add(m.metricTypeCategory);
+    }
+  });
+
   if (notExistingMetricTypeCategoryNames.size > 0) {
     const message = `[${
       sourceConfig.name
-    }] Metric type category names not found in JobDone: ${Array.from(
+    }] The following metric type categories do not belong to the effective metric type: ${Array.from(
       notExistingMetricTypeCategoryNames
     ).join(", ")}`;
     logger.error(message);
-    await sendMessageToDiscord({ message });
+    throw new Error(message);
   }
 
   const mergeMetricTypeName = sourceConfig.mergeMetricTypes.name;
@@ -146,6 +153,22 @@ const validateMetricsForSource = async (
     logger.error(message);
     throw new Error(message);
   }
+
+  // Build a mapping of metric type category names to IDs for later use.
+  // (Note that these names may not be unique across metric types, but our checks above ensure we use the correct one.)
+  const existingMetricTypeCategoryIdsByNameMap: Map<string, string> = new Map();
+  existingMetricTypes.metricType.forEach((mt) => {
+    mt.metricTypeCategories.forEach((cat) => {
+      // Only add if this category belongs to the effective metric type for merged metrics.
+      if (sourceConfig.mergeMetricTypes.enabled) {
+        if (mt.name === sourceConfig.mergeMetricTypes.name) {
+          existingMetricTypeCategoryIdsByNameMap.set(cat.name, cat.id);
+        }
+      } else {
+        existingMetricTypeCategoryIdsByNameMap.set(cat.name, cat.id);
+      }
+    });
+  });
 
   return {
     existingCostCenterIdsByNameMap,
@@ -301,7 +324,7 @@ const start = async () => {
 
       switch (source.type) {
         case "csv":
-          sourceMetrics = await importFromCsv(source);
+          sourceMetrics = await importFromCsv(source, appConfig.timeZone);
           break;
         case "snowflake":
           sourceMetrics = await importFromSnowflake(source, appConfig.timeZone);

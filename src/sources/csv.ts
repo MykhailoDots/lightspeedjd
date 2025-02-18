@@ -1,4 +1,4 @@
-import { type CSVSourceConfig, type TransformColumn } from "../config";
+import { type AppConfig, type CSVSourceConfig, type TransformColumn } from "../config";
 import { parse } from "csv-parse/sync";
 import fs from "fs";
 import type { MetricImport } from "..";
@@ -100,7 +100,8 @@ const parseCsv = async (
 };
 
 export const importFromCsv = async (
-  config: CSVSourceConfig
+  config: CSVSourceConfig,
+  timeZone: string,
 ): Promise<MetricImport[]> => {
   if (!config.filePath) {
     throw new Error(`[${config.name}] Source file path is not set`);
@@ -132,7 +133,7 @@ export const importFromCsv = async (
 
     return {
       timestampCompatibleWithGranularity: dayjs
-        .tz(m.date, config.dateFormat)
+        .tz(m.date, config.dateFormat, timeZone)
         .utc()
         .toISOString(),
       costCenter: m.costCenter,
