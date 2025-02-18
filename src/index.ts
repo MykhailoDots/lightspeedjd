@@ -24,7 +24,7 @@ export interface MetricImport {
   costCenter: string;
   metricType: string;
   value: string;
-  targetField: string;
+  metricTypeCategory: string; // renamed from targetField
 }
 
 const validateMetricsForSource = async (
@@ -33,12 +33,11 @@ const validateMetricsForSource = async (
   existingCostCenters: CostCentersByOrganizationIdQuery,
   existingMetricTypes: MetricTypesByOrganizationIdQuery
 ) => {
-  // Apply metric type mappings
+  // Apply metric type mappings for metric types
   const renamedExistingMetricTypes = existingMetricTypes.metricType.map((c) => {
     const metricTypeMapping = sourceConfig.metricTypeMappings.find(
       (m) => m.importName === c.name
     );
-
     if (metricTypeMapping) {
       return {
         ...c,
@@ -98,6 +97,45 @@ const validateMetricsForSource = async (
     await sendMessageToDiscord({ message });
   }
 
+  // Build a global mapping of metric type category names to IDs
+  const existingMetricTypeCategoryIdsByNameMap: Map<string, string> = new Map();
+  existingMetricTypes.metricType.forEach((mt) => {
+    mt.metricTypeCategories.forEach((cat) => {
+      existingMetricTypeCategoryIdsByNameMap.set(cat.name, cat.id);
+    });
+  });
+
+  // Validate that each metric import has a valid metric type category
+  const notExistingMetricTypeCategoryNames = new Set<string>();
+  metricsToImport.forEach((m) => {
+    // Determine the effective metric type name
+    const effectiveMetricTypeName = sourceConfig.mergeMetricTypes.enabled
+      ? sourceConfig.mergeMetricTypes.name
+      : m.metricType;
+    // Find the metric type object
+    const metricTypeObj = existingMetricTypes.metricType.find(
+      (mt) => mt.name === effectiveMetricTypeName
+    );
+    if (metricTypeObj) {
+      if (
+        !metricTypeObj.metricTypeCategories.some(
+          (cat) => cat.name === m.metricTypeCategory
+        )
+      ) {
+        notExistingMetricTypeCategoryNames.add(m.metricTypeCategory);
+      }
+    }
+  });
+  if (notExistingMetricTypeCategoryNames.size > 0) {
+    const message = `[${
+      sourceConfig.name
+    }] Metric type category names not found in JobDone: ${Array.from(
+      notExistingMetricTypeCategoryNames
+    ).join(", ")}`;
+    logger.error(message);
+    await sendMessageToDiscord({ message });
+  }
+
   const mergeMetricTypeName = sourceConfig.mergeMetricTypes.name;
   if (
     sourceConfig.mergeMetricTypes.enabled &&
@@ -114,6 +152,7 @@ const validateMetricsForSource = async (
     existingCostCenterIdsByNameMap,
     existingMetricTypesIdsByNameMap,
     metricTypeMappingsByNameMap,
+    existingMetricTypeCategoryIdsByNameMap,
   };
 };
 
@@ -122,6 +161,7 @@ const formatMetricsForImport = (
   sourceConfig: SourceConfigType,
   existingCostCenterIdsByNameMap: Map<string, string>,
   existingMetricTypesIdsByNameMap: Map<string, string>,
+  existingMetricTypeCategoryIdsByNameMap: Map<string, string>,
   timeZone: string
 ): SaveMetricDetailsInput[] => {
   const formattedMetrics: SaveMetricDetailsInput[] = [];
@@ -170,10 +210,24 @@ const formatMetricsForImport = (
       return;
     }
 
+    const metricTypeCategoryId = existingMetricTypeCategoryIdsByNameMap.get(
+      m.metricTypeCategory
+    );
+    if (!metricTypeCategoryId) {
+      logger.error(
+        `[${sourceConfig.name}] Metric type category does not exist: ${m.metricTypeCategory}`
+      );
+      metricsUnableToImport.push({
+        MetricImport: m,
+        Reason: `Metric type category does not exist: ${m.metricTypeCategory}`,
+      });
+      return;
+    }
+
     formattedMetrics.push({
       costCenterId,
       metricTypeId,
-      field: m.targetField,
+      metricTypeCategoryId,
       description: null,
       timeZone,
       timestamp: m.timestampCompatibleWithGranularity,
@@ -205,10 +259,8 @@ const mergeMetrics = (
 
     const existingMetric = mergedMetrics.get(key);
     if (existingMetric) {
-      // Ensure we're working with numbers
       const currentValue = existingMetric.value || 0;
       const newValue = metric.value || 0;
-
       existingMetric.value = parseFloat((currentValue + newValue).toFixed(2));
     }
   });
@@ -237,7 +289,6 @@ const start = async () => {
 
   let allFormattedMetricsToImport: SaveMetricDetailsInput[] = [];
 
-  // Process each enabled source
   for (const source of appConfig.sources) {
     if (!source.enabled) {
       logger.info(`Skipping disabled source: ${source.name}`);
@@ -253,21 +304,16 @@ const start = async () => {
         case "csv":
           sourceMetrics = await importFromCsv(source);
           break;
-
         case "snowflake":
           sourceMetrics = await importFromSnowflake(source, appConfig.timeZone);
           break;
-
         case "clock":
           sourceMetrics = await importFromClock(source, appConfig.timeZone);
           break;
-
         default: {
-          // Type narrowing to ensure we have the source name
           const unknownSource = source as { name?: string; type: string };
           const sourceName = unknownSource.name || "Unknown source";
           const sourceType = unknownSource.type || "Unknown type";
-
           const message = `Unknown source type: ${sourceType} for ${sourceName}, skipping...`;
           logger.error(message);
           await sendMessageToDiscord({ message });
@@ -279,11 +325,11 @@ const start = async () => {
         `Retrieved ${sourceMetrics.length} metrics from ${source.name}`
       );
 
-      // Validate and transform metrics for this source
       const {
         existingCostCenterIdsByNameMap,
         existingMetricTypesIdsByNameMap,
         metricTypeMappingsByNameMap,
+        existingMetricTypeCategoryIdsByNameMap,
       } = await validateMetricsForSource(
         sourceMetrics,
         source,
@@ -291,16 +337,15 @@ const start = async () => {
         existingMetricTypes
       );
 
-      // Format metrics for this source
       const formattedMetrics = formatMetricsForImport(
         sourceMetrics,
         source,
         existingCostCenterIdsByNameMap,
         existingMetricTypesIdsByNameMap,
+        existingMetricTypeCategoryIdsByNameMap,
         appConfig.timeZone
       );
 
-      // Merge metrics if enabled for this source
       const mergedMetrics = source.mergeMetricTypes.enabled
         ? mergeMetrics(formattedMetrics)
         : formattedMetrics;
@@ -315,12 +360,10 @@ const start = async () => {
       }`;
       logger.error(message);
       await sendMessageToDiscord({ message });
-      // Continue with other sources even if one fails
       continue;
     }
   }
 
-  // Sort all metrics by timestamp
   allFormattedMetricsToImport.sort((a, b) => {
     return dayjs(a.timestamp).isAfter(dayjs(b.timestamp)) ? 1 : -1;
   });
@@ -333,7 +376,6 @@ const start = async () => {
     return;
   }
 
-  // Save in batches of 100
   const batchSize = 100;
   for (let i = 0; i < allFormattedMetricsToImport.length; i += batchSize) {
     logger.info(`Saving metrics: ${i} to ${i + batchSize}`);
@@ -365,9 +407,6 @@ CronJob.from({
   runOnInit: true,
 });
 
-/**
- * Gracefully handle SIGINT
- */
 process.on("SIGINT", async () => {
   logger.warn("Importer aborted...");
   process.exit();

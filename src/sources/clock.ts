@@ -12,7 +12,6 @@ interface ClockState {
 
 const clockStateFilePath = path.resolve(process.cwd(), "clock-state.json");
 
-// Helper function to read the clock state
 const readClockState = async (): Promise<ClockState> => {
   try {
     const data = await fs.readFile(clockStateFilePath, "utf-8");
@@ -23,7 +22,6 @@ const readClockState = async (): Promise<ClockState> => {
   }
 };
 
-// Helper function to write the clock state
 const writeClockState = async (lastUpdatedAt: string) => {
   const clockState: ClockState = { lastUpdatedAt };
   try {
@@ -38,7 +36,7 @@ const writeClockState = async (lastUpdatedAt: string) => {
 
 export const importFromClock = async (
   config: ClockSourceConfig,
-  timeZone: string,
+  timeZone: string
 ): Promise<MetricImport[]> => {
   logger.info(`[${config.name}] Fetching data from Clock API...`);
 
@@ -48,20 +46,16 @@ export const importFromClock = async (
     throw new Error(`[${config.name}] API user or API key not configured`);
   }
 
-  // Set up digest authentication
   const client = new DigestFetch(config.apiUser, config.apiKey);
 
-  // Read lastUpdatedAt from clock-state.json
   const clockState = await readClockState();
   const lastUpdatedAt = clockState.lastUpdatedAt;
 
   const api = `https://${config.subscriptionRegion}.clock-software.com/${config.baseApi}/${config.subscriptionId}/${config.accountId}`;
   const bookingsApi = `${api}/bookings`;
 
-  // Define the cache directory path
   const cacheDir = path.resolve(process.cwd(), "cache");
 
-  // Create the cache directory if it doesn't exist
   if (config.isCacheEnabled) {
     try {
       await fs.mkdir(cacheDir, { recursive: true });
@@ -74,7 +68,6 @@ export const importFromClock = async (
   }
 
   try {
-    // Conditionally construct the URL
     let newBookingsUrl = bookingsApi;
 
     if (lastUpdatedAt) {
@@ -88,7 +81,6 @@ export const importFromClock = async (
       );
     }
 
-    // Fetch the list of booking IDs
     const response = await client.fetch(newBookingsUrl, { method: "GET" });
     if (!response.ok) {
       throw new Error(`Error fetching booking list: ${response.statusText}`);
@@ -96,13 +88,9 @@ export const importFromClock = async (
 
     let bookingIds: number[] = await response.json();
 
-    // if (appEnvironment.isDryRun) {
-    //   bookingIds = bookingIds.slice(0, 5);
-    // }
     logger.info(`[${config.name}] Found ${bookingIds.length} bookings`);
     logger.debug(`[${config.name}] Booking IDs: ${bookingIds.join(", ")}`);
 
-    // Process each booking ID
     for (const bookingId of bookingIds) {
       let booking: any;
       const cacheFilePath = path.join(cacheDir, `booking_${bookingId}.json`);
@@ -115,7 +103,6 @@ export const importFromClock = async (
             `[${config.name}] Loaded booking ${bookingId} from cache`
           );
         } catch (error) {
-          // Cache miss or error reading cache, proceed to fetch from API
           logger.info(
             `[${config.name}] Cache miss for booking ${bookingId}, fetching from API`
           );
@@ -137,7 +124,6 @@ export const importFromClock = async (
 
           booking = await bookingResponse.json();
 
-          // Save the booking data to cache
           await fs.writeFile(cacheFilePath, JSON.stringify(booking, null, 2));
           logger.info(`[${config.name}] Cached booking ${bookingId} data`);
         }
@@ -168,22 +154,9 @@ export const importFromClock = async (
         )}`
       );
 
-      /**
-       * Status: The Booking status can be: 'expected', 'checked_in', 'checked_out', 'canceled' or 'no_show'.
-       * Bookings having the last two statuses ('canceled' or 'no_show') are considered not to be valid bookings.
-       * Such bookings are not taken into availability.
-       * The status is fully reversible and can be changed at any time (examples: from 'cancelled' to 'expected'; from 'checked_out' to 'checked_in', etc.)
-       *
-       * arrival: 2024-01-01
-       * departure: 2024-01-08
-       */
-
-      /**
-       * metricType: actual = 'checked_in', 'checked_out',
-       * metricType: scheduled = 'expected'
-       */
-
-      // Calculate stay duration
+      // For Clock import, we now use dynamic category names:
+      // - "Ist" for 'checked_in' or 'checked_out'
+      // - "Geplant" for 'expected'
       const arrivalDate = dayjs(booking.arrival);
       const departureDate = dayjs(booking.departure);
       const stayDuration = departureDate.diff(arrivalDate, "day");
@@ -192,21 +165,19 @@ export const importFromClock = async (
         throw new Error(`[${config.name}] Metric type not configured`);
       }
 
-      // Determine the targetField based on the booking status
       let targetField: string;
       if (booking.status === "checked_in" || booking.status === "checked_out") {
-        targetField = "actual";
+        targetField = "Ist";
       } else if (booking.status === "expected") {
-        targetField = "scheduled";
+        targetField = "Geplant";
       } else {
-        continue; // Skip invalid statuses like 'canceled' or 'no_show'
+        continue;
       }
 
       if (!config.costCenter) {
         throw new Error(`[${config.name}] Cost center not configured`);
       }
 
-      // Apply metric type mapping if configured
       const metricTypeMapping = config.metricTypeMappings.find(
         (m) => m.importName === config.metricType
       );
@@ -214,7 +185,6 @@ export const importFromClock = async (
         ? metricTypeMapping.jobdoneName
         : config.metricType;
 
-      // Loop through each day of the stay and create a metric
       for (let i = 0; i < stayDuration; i++) {
         const currentDate = arrivalDate
           .add(i, "day")
@@ -222,12 +192,11 @@ export const importFromClock = async (
           .utc()
           .toISOString();
 
-        // Check if metricsToImport already has a metric for this day
         let existingMetric = metricsToImport.find(
           (metric) =>
             metric.timestampCompatibleWithGranularity === currentDate &&
             metric.costCenter === config.costCenter &&
-            metric.targetField === targetField
+            metric.metricTypeCategory === targetField
         );
 
         if (existingMetric) {
@@ -243,20 +212,18 @@ export const importFromClock = async (
             costCenter: config.costCenter,
             metricType: finalMetricType,
             value: "1",
-            targetField: targetField,
+            metricTypeCategory: targetField,
           };
           metricsToImport.push(metric);
         }
       }
     }
 
-    // Update the lastUpdatedAt timestamp
     if (!appEnvironment.isDryRun) {
       const newLastUpdatedAt = dayjs().toISOString();
       await writeClockState(newLastUpdatedAt);
     }
 
-    // Clear cache if enabled and not explicitly preserved
     if (config.isCacheEnabled && !config.isDoNotDeleteCacheEnabled) {
       try {
         const files = await fs.readdir(cacheDir);

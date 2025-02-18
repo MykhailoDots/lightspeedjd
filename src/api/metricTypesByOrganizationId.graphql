@@ -1,6 +1,13 @@
 query MetricTypesByOrganizationId($organizationId: uuid = "") {
-    metricType(where: {organizationId: {_eq: $organizationId}, deletedAt: {_is_null: true}}) {
-        id
-        name
+  metricType(where: {organizationId: {_eq: $organizationId}, deletedAt: {_is_null: true}}) {
+    id
+    name
+    status
+    metricTypeCategories {
+      id
+      name
+      type
+      isEditable
     }
+  }
 }

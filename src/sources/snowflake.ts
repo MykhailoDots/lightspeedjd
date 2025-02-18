@@ -62,9 +62,7 @@ export const importFromSnowflake = async (
           reject(err);
         } else {
           if (rows) {
-            // Apply metric type mappings if configured
             const mappedMetrics: MetricImport[] = rows.map((row) => {
-              // Check if there's a mapping for this metric type
               const metricTypeMapping = config.metricTypeMappings.find(
                 (m) => m.importName === row.metricType
               );
@@ -75,12 +73,11 @@ export const importFromSnowflake = async (
                   .utc()
                   .toISOString(),
                 costCenter: row.costCenter,
-                // Use mapped name if exists, otherwise use original
                 metricType: metricTypeMapping
                   ? metricTypeMapping.jobdoneName
                   : row.metricType,
                 value: row.value.toString(),
-                targetField: config.targetField || "actual",
+                metricTypeCategory: config.metricTypeCategory || "Ist",
               };
             });
 

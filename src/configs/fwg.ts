@@ -3,28 +3,28 @@ import { getEnvVar } from "../config";
 
 export const appConfigFWG: AppConfig = {
   sources: [
-        {
-          name: "daily_revenue",
-          type: "snowflake",
-          enabled: true,
-          ignoredMissingCostCenters: ["308", "309", "312", "314", "1000"],
-          autoCreateMetricType: false,
-          targetField: 'actual',
-          mergeMetricTypes: {
-            enabled: true,
-            name: "Umsatz",
-          },
-          metricTypeMappings: [],
-          account: getEnvVar("SNOWFLAKE_ACCOUNT"),
-          username: getEnvVar("SNOWFLAKE_USER"),
-          password: getEnvVar("SNOWFLAKE_PASSWORD"),
-          database: "DWH",
-          schema: "DBT_DWH",
-          warehouse: "COMPUTE_WH",
-          role: "DBT",
-          daysPast: 7,
-          daysFuture: 0,
-          query: `
+    {
+      name: "daily_revenue",
+      type: "snowflake",
+      enabled: true,
+      ignoredMissingCostCenters: ["308", "309", "312", "314", "1000"],
+      autoCreateMetricType: false,
+      metricTypeCategory: "Umsatz Effektiv",
+      mergeMetricTypes: {
+        enabled: true,
+        name: "Umsatz",
+      },
+      metricTypeMappings: [],
+      account: getEnvVar("SNOWFLAKE_ACCOUNT"),
+      username: getEnvVar("SNOWFLAKE_USER"),
+      password: getEnvVar("SNOWFLAKE_PASSWORD"),
+      database: "DWH",
+      schema: "DBT_DWH",
+      warehouse: "COMPUTE_WH",
+      role: "DBT",
+      daysPast: 7,
+      daysFuture: 0,
+      query: `
     SELECT
       TO_VARCHAR(DATUM, 'YYYY-MM-DD') AS "timestamp",
       TRIM(TO_VARCHAR(RESTAURANTID)) AS "costCenter",
@@ -35,30 +35,30 @@ export const appConfigFWG: AppConfig = {
     GROUP BY RESTAURANTID, DATUM
     ORDER BY RESTAURANTID, DATUM;
           `,
-        },
-        {
-          name: "monthly_costs",
-          type: "snowflake",
-          enabled: true,
-          ignoredMissingCostCenters: [],
-          autoCreateMetricType: false,
-          targetField: 'targetOrBudget',
-          mergeMetricTypes: {
-            enabled: true,
-            name: "Umsatz",
-          },
-          metricTypeMappings: [],
-          account: getEnvVar("SNOWFLAKE_ACCOUNT"),
-          username: getEnvVar("SNOWFLAKE_USER"),
-          password: getEnvVar("SNOWFLAKE_PASSWORD"),
-          database: "DWH",
-          schema: "DBT_SHARED_MART",
-          warehouse: "COMPUTE_WH",
-          role: "DBT",
-          daysPast: 30,
-          daysFuture: 0,
-          // TODO: SCOPE QUERY to X days into the past, right now we import everything
-          query: `
+    },
+    {
+      name: "monthly_costs",
+      type: "snowflake",
+      enabled: true,
+      ignoredMissingCostCenters: [],
+      autoCreateMetricType: false,
+      metricTypeCategory: "Umsatz gem. Stellenplan",
+      mergeMetricTypes: {
+        enabled: true,
+        name: "Umsatz",
+      },
+      metricTypeMappings: [],
+      account: getEnvVar("SNOWFLAKE_ACCOUNT"),
+      username: getEnvVar("SNOWFLAKE_USER"),
+      password: getEnvVar("SNOWFLAKE_PASSWORD"),
+      database: "DWH",
+      schema: "DBT_SHARED_MART",
+      warehouse: "COMPUTE_WH",
+      role: "DBT",
+      daysPast: 30,
+      daysFuture: 0,
+      // TODO: SCOPE QUERY to X days into the past, right now we import everything
+      query: `
 WITH date_spine AS (
     -- Generate dates from today for 1 year
     SELECT DISTINCT
@@ -112,14 +112,14 @@ SELECT
 FROM unpivoted_values
 ORDER BY OUTLET_ID, date;
           `,
-        },
+    },
     {
       name: "monthly_target",
       type: "snowflake",
       enabled: true,
       ignoredMissingCostCenters: [],
       autoCreateMetricType: false,
-      targetField: "forecasted",
+      metricTypeCategory: "Umsatz gem. Monatsziel",
       mergeMetricTypes: {
         enabled: true,
         name: "Umsatz",

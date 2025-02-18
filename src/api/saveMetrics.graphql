@@ -1,6 +1,12 @@
 mutation saveMetrics(
   $input: SaveMetricInput = {
-    details: { field: "", timeZone: "", timestamp: "" }
+    details: {
+      costCenterId: ""
+      metricTypeCategoryId: ""
+      metricTypeId: ""
+      timeZone: ""
+      timestamp: ""
+    }
   }
 ) {
   jobdoneCustom1 {
