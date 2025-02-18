@@ -49,6 +49,7 @@ const validateMetricsForSource = async (
 
   const existingCostCenterIdsByNameMap: Map<string, string> = new Map();
   const existingMetricTypesIdsByNameMap: Map<string, string> = new Map();
+  const existingMetricTypeCategoryIdsByNameMap: Map<string, string> = new Map();
   const metricTypeMappingsByNameMap = new Map();
 
   existingCostCenters.costCenter.forEach((c) => {
@@ -56,6 +57,11 @@ const validateMetricsForSource = async (
   });
   renamedExistingMetricTypes.forEach((m) => {
     existingMetricTypesIdsByNameMap.set(m.name, m.id);
+  });
+  existingMetricTypes.metricType.forEach((mt) => {
+    mt.metricTypeCategories.forEach((cat) => {
+      existingMetricTypeCategoryIdsByNameMap.set(cat.name, cat.id);
+    });
   });
   sourceConfig.metricTypeMappings.forEach((m) => {
     metricTypeMappingsByNameMap.set(m.importName, m.jobdoneName);
@@ -76,34 +82,6 @@ const validateMetricsForSource = async (
   const notExistingMetricTypeNames = Array.from(metricTypeNamesToImport).filter(
     (m) => !existingMetricTypes.metricType.some((mt) => mt.name === m)
   );
-
-  if (notExistingCostCenterNames.length > 0) {
-    const message = `[${
-      sourceConfig.name
-    }] Cost center names not found in JobDone: ${notExistingCostCenterNames.join(
-      ", "
-    )}`;
-    logger.error(message);
-    await sendMessageToDiscord({ message });
-  }
-
-  if (notExistingMetricTypeNames.length > 0) {
-    const message = `[${
-      sourceConfig.name
-    }] Metric type names not found in JobDone: ${notExistingMetricTypeNames.join(
-      ", "
-    )}`;
-    logger.error(message);
-    await sendMessageToDiscord({ message });
-  }
-
-  // Build a global mapping of metric type category names to IDs
-  const existingMetricTypeCategoryIdsByNameMap: Map<string, string> = new Map();
-  existingMetricTypes.metricType.forEach((mt) => {
-    mt.metricTypeCategories.forEach((cat) => {
-      existingMetricTypeCategoryIdsByNameMap.set(cat.name, cat.id);
-    });
-  });
 
   // Validate that each metric import has a valid metric type category
   const notExistingMetricTypeCategoryNames = new Set<string>();
@@ -126,6 +104,27 @@ const validateMetricsForSource = async (
       }
     }
   });
+
+  if (notExistingCostCenterNames.length > 0) {
+    const message = `[${
+      sourceConfig.name
+    }] Cost center names not found in JobDone: ${notExistingCostCenterNames.join(
+      ", "
+    )}`;
+    logger.error(message);
+    await sendMessageToDiscord({ message });
+  }
+
+  if (notExistingMetricTypeNames.length > 0) {
+    const message = `[${
+      sourceConfig.name
+    }] Metric type names not found in JobDone: ${notExistingMetricTypeNames.join(
+      ", "
+    )}`;
+    logger.error(message);
+    await sendMessageToDiscord({ message });
+  }
+
   if (notExistingMetricTypeCategoryNames.size > 0) {
     const message = `[${
       sourceConfig.name
