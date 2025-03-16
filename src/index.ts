@@ -18,6 +18,7 @@ import {
 } from "./util";
 import { importFromClock } from "./sources/clock";
 import type { SourceConfigType } from "./config";
+import { importFromHelloTESS } from "./sources/hellotess";
 
 export interface MetricImport {
   timestampCompatibleWithGranularity: string;
@@ -331,6 +332,9 @@ const start = async () => {
           break;
         case "clock":
           sourceMetrics = await importFromClock(source, appConfig.timeZone);
+          break;
+        case "hellotess":
+          sourceMetrics = await importFromHelloTESS(source, appConfig.timeZone);
           break;
         default: {
           const unknownSource = source as { name?: string; type: string };

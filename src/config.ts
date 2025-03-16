@@ -1,5 +1,6 @@
 import { appConfigBindella } from "./configs/bindella";
 import { appConfigFWG } from "./configs/fwg";
+import { appConfigHelloTESS } from "./configs/seerose";
 import { appConfigHotelMonopol } from "./configs/hotel-monopol";
 
 export function getEnvVar(name: string, isOptional = false): string {
@@ -24,6 +25,8 @@ export function getAppConfig() {
       return appConfigFWG;
     case "Hotel Monopol":
       return appConfigHotelMonopol;
+    case "HelloTESS":
+      return appConfigHelloTESS;
     default:
       throw new Error(`Unknown config file: ${configFile}`);
   }
@@ -45,9 +48,6 @@ export const appEnvironment = {
     authRegion: getEnvVar("JOBDONE_AUTH_REGION"),
     userPoolId: getEnvVar("JOBDONE_USER_POOL_ID"),
     userPoolWebClientId: getEnvVar("JOBDONE_USER_POOL_WEB_CLIENT_ID"),
-    //   bearerToken: getEnvVar("JOBDONE_BEARER_TOKEN"),
-    //   accessKey: getEnvVar("JOBDONE_ACCESS_KEY"),
-    //   rawSecret: getEnvVar("JOBDONE_RAW_SECRET"),
   },
   graphql: {
     endpoint: getEnvVar("JOBDONE_GRAPHQL_ENDPOINT"),
@@ -62,7 +62,7 @@ export const appEnvironment = {
   },
 } as const;
 
-export type SOURCE_TYPE = "csv" | "snowflake" | "clock";
+export type SOURCE_TYPE = "csv" | "snowflake" | "clock" | "hellotess";
 export interface TransformColumn {
   outputColumn: string;
   operation: "add" | "subtract";
@@ -126,10 +126,20 @@ export interface ClockSourceConfig extends BaseSourceConfig {
   isDoNotDeleteCacheEnabled: boolean;
 }
 
+export interface HelloTESSSourceConfig extends BaseSourceConfig {
+  type: "hellotess";
+  apiKey: string;
+  host: string;
+  daysPast: number;
+  daysFuture: number;
+  storeId?: string;
+}
+
 export type SourceConfigType =
   | CSVSourceConfig
   | SnowflakeSourceConfig
-  | ClockSourceConfig;
+  | ClockSourceConfig
+  | HelloTESSSourceConfig;
 
 export interface AppConfig {
   sources: SourceConfigType[];
