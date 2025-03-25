@@ -3,8 +3,8 @@ import { getEnvVar } from "../config";
 
 export const appConfigFWG: AppConfig = {
   sources: [
-    {
-      name: "daily_revenue",
+    { // Umsatz Effektiv
+      name: "revenue-actual",
       type: "snowflake",
       enabled: true,
       ignoredMissingCostCenters: ["308", "309", "312", "314", "1000"],
@@ -36,8 +36,8 @@ export const appConfigFWG: AppConfig = {
     ORDER BY RESTAURANTID, DATUM;
           `,
     },
-    {
-      name: "monthly_costs",
+    { // Umsatz gem. Stellenplan
+      name: "revenue-target-position-plan",
       type: "snowflake",
       enabled: true,
       ignoredMissingCostCenters: [],
@@ -113,8 +113,8 @@ FROM unpivoted_values
 ORDER BY OUTLET_ID, date;
           `,
     },
-    {
-      name: "monthly_target",
+    { // Umsatz gem. Monatsziel
+      name: "revenue-target-monthly",
       type: "snowflake",
       enabled: true,
       ignoredMissingCostCenters: [],
@@ -189,6 +189,38 @@ WHERE latest_target = 1
 ORDER BY OUTLET_ID, date;
         `,
     },
+    { // Umsatz Forecast
+        name: "revenue-forecast",
+        type: "snowflake",
+        enabled: true,
+        ignoredMissingCostCenters: ['1000'],
+        autoCreateMetricType: false,
+        metricTypeCategory: "Umsatz Forecast",
+        mergeMetricTypes: {
+          enabled: true,
+          name: "Umsatz",
+        },
+        metricTypeMappings: [],
+        account: getEnvVar("SNOWFLAKE_ACCOUNT", true),
+        username: getEnvVar("SNOWFLAKE_USER", true),
+        password: getEnvVar("SNOWFLAKE_PASSWORD", true),
+        database: "DWH",
+        schema: "DBT_SHARED_MART",
+        warehouse: "COMPUTE_WH",
+        role: "DBT",
+        daysPast: 30,
+        daysFuture: 90,
+        query: `
+SELECT
+    TO_CHAR(DATE("ds"), 'YYYY-MM-DD') AS "timestamp",
+    "KST" AS "costCenter",
+    'Umsatz' AS "metricType",
+    ROUND("trend", 2) AS "value"
+FROM JOBDONE_FORCASTJD
+WHERE "ds" BETWEEN ? AND ?
+ORDER BY "KST", "ds";
+          `,
+      },
   ],
   diskFreeSpaceThresholdInPercent: 20,
   timeZone: "Europe/Zurich",
