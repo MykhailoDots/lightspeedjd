@@ -215,7 +215,7 @@ SELECT
     TO_CHAR(DATE("ds"), 'YYYY-MM-DD') AS "timestamp",
     "KST" AS "costCenter",
     'Umsatz' AS "metricType",
-    ROUND("trend", 2) AS "value"
+    ROUND("yhat", 2) AS "value"
 FROM JOBDONE_FORCASTJD
 WHERE "ds" BETWEEN ? AND ?
 ORDER BY "KST", "ds";
