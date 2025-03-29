@@ -1,0 +1,73 @@
+import type { AppConfig, TagiNetSourceConfig } from "../config";
+import { getEnvVar } from "../config";
+
+export const appConfigSmallFoot: AppConfig = {
+  sources: [
+    {
+      name: "taginet_childcare",
+      type: "taginet",
+      enabled: true,
+      ignoredMissingCostCenters: [],
+      autoCreateMetricType: false,
+      metricTypeCategory: "not-applicable", // Will be overridden by specific categories
+      mergeMetricTypes: {
+        enabled: false,
+        name: "",
+      },
+      metricTypeMappings: [],
+      apiUrl:
+        getEnvVar("TAGINET_API_URL", true) ||
+        "https://www.taginet.com/smallfoot/rest/v1/report/customizedReport/xq",
+      username:
+        getEnvVar("TAGINET_USERNAME", true) || "h5iLNED0WG1eObJn-jobdone",
+      password: getEnvVar("TAGINET_PASSWORD", true),
+      daysPast: 7,
+      daysFuture: 30,
+      ageWeightThresholdMonths: 18, // Children <= 18 months get higher weight
+      youngChildWeight: 1.5, // Weight for children <= threshold
+      olderChildWeight: 1, // Weight for older children
+      costCenterMapping: {
+        Aarau: "202 Aarau",
+        Andermatt: "401 Andermatt",
+        "Baar 1": "301 Baar 1",
+        Ballwil: "122 Ballwil",
+        Beckenried: "502 Beckenried",
+        "Beinwil am See": "207 Beinwil am See",
+        Bellikon: "206 Bellikon",
+        Buchrain: "118 Buchrain",
+        Buochs: "505 Buochs",
+        Dagmersellen: "107 Dagmersellen",
+        Escholzmatt: "121 Escholzmatt",
+        Feldbreite: "108 Emmen-Feldbreite",
+        Hergiswil: "501 Hergiswil",
+        Hochdorf: "109 Hochdorf",
+        Knutwil: "113 Knutwil",
+        Kriens: "101 Kriens",
+        Littau: "116 Littau",
+        LUKS: "106 LUKS",
+        "Maerlischloss Ennetbuergen": "503 Ennetbürgen Märlischloss",
+        "Maerlischloss Kriens": "123 Kriens Mattenhof Märlischloss",
+        "Maerlischloss Rothenburg": "124 Rothenburg Märlischloss",
+        Maihof: "102 Luzern Maihof",
+        Malters: "111 Malters",
+        Oensingen: "601 Oensingen",
+        Rain: "115 Rain",
+        Reiden: "117 Reiden",
+        Root: "120 Root",
+        Rothrist: "203 Rothrist",
+        Ruswil: "104 Ruswil",
+        Sarnen: "702 Sarnen",
+        Schoetz: "110 Schötz",
+        Sins1: "201 Sins 1",
+        Sins2: "204 Sins 2",
+        "Staerneaehuesli Altdorf": "499 Altdorf Stärnähüsli",
+        Stans: "504 Stans",
+        Sursee: "105 Sursee",
+        Vitznau: "119 Vitznau",
+        Wuerzenbach: "112 Luzern Würzenbach",
+      },
+    } as TagiNetSourceConfig,
+  ],
+  diskFreeSpaceThresholdInPercent: 20,
+  timeZone: "Europe/Zurich",
+};

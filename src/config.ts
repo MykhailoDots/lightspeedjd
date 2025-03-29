@@ -2,6 +2,7 @@ import { appConfigBindella } from "./configs/bindella";
 import { appConfigFWG } from "./configs/fwg";
 import { appConfigHelloTESS } from "./configs/seerose";
 import { appConfigHotelMonopol } from "./configs/hotel-monopol";
+import { appConfigSmallFoot } from "./configs/small-foot";
 
 export function getEnvVar(name: string, isOptional = false): string {
   const value = process.env[name];
@@ -27,6 +28,8 @@ export function getAppConfig() {
       return appConfigHotelMonopol;
     case "HelloTESS":
       return appConfigHelloTESS;
+    case "small Foot":
+      return appConfigSmallFoot;
     default:
       throw new Error(`Unknown config file: ${configFile}`);
   }
@@ -62,7 +65,7 @@ export const appEnvironment = {
   },
 } as const;
 
-export type SOURCE_TYPE = "csv" | "snowflake" | "clock" | "hellotess";
+export type SOURCE_TYPE = "csv" | "snowflake" | "clock" | "hellotess" | "taginet";
 export interface TransformColumn {
   outputColumn: string;
   operation: "add" | "subtract";
@@ -135,11 +138,25 @@ export interface HelloTESSSourceConfig extends BaseSourceConfig {
   storeId?: string;
 }
 
+export interface TagiNetSourceConfig extends BaseSourceConfig {
+  type: "taginet";
+  apiUrl: string;
+  username: string;
+  password: string;
+  daysPast: number;
+  daysFuture: number;
+  ageWeightThresholdMonths: number;
+  youngChildWeight: number;
+  olderChildWeight: number;
+  costCenterMapping?: Record<string, string>;
+}
+
 export type SourceConfigType =
   | CSVSourceConfig
   | SnowflakeSourceConfig
   | ClockSourceConfig
-  | HelloTESSSourceConfig;
+  | HelloTESSSourceConfig
+  | TagiNetSourceConfig;
 
 export interface AppConfig {
   sources: SourceConfigType[];

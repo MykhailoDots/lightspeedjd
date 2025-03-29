@@ -11,6 +11,7 @@ import isLeapYear from "dayjs/plugin/isLeapYear";
 import calendar from "dayjs/plugin/calendar";
 import dayOfYear from "dayjs/plugin/dayOfYear";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import minMax from "dayjs/plugin/minMax";
 
 dayjs.extend(utc);
 dayjs.extend(dayJsTimezone);
@@ -24,5 +25,6 @@ dayjs.extend(isLeapYear);
 dayjs.extend(calendar);
 dayjs.extend(dayOfYear);
 dayjs.extend(customParseFormat);
+dayjs.extend(minMax);
 
 export default dayjs;
