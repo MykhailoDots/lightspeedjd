@@ -17,6 +17,7 @@ import {
   UpsertMetrics,
 } from "./util";
 import { importFromClock } from "./sources/clock";
+import { importFromTagiNet } from "./sources/taginet";
 import type { SourceConfigType } from "./config";
 import { importFromHelloTESS } from "./sources/hellotess";
 
@@ -335,6 +336,9 @@ const start = async () => {
           break;
         case "hellotess":
           sourceMetrics = await importFromHelloTESS(source, appConfig.timeZone);
+          break;
+        case "taginet":
+          sourceMetrics = await importFromTagiNet(source, appConfig.timeZone);
           break;
         default: {
           const unknownSource = source as { name?: string; type: string };
