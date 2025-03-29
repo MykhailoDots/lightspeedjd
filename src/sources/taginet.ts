@@ -70,10 +70,6 @@ export const importFromTagiNet = async (
     // Process the data and convert to MetricImport format
     const metricsMap = new Map<string, number>();
 
-    // For tracking data needed to calculate averages
-    const dailySums = new Map<string, number>();
-    const dailyCounts = new Map<string, number>();
-
     for (const entry of entries) {
       // Check if the entry has a valid date range that overlaps with our query period
       const entryStartDate = dayjs(entry.b_von_datum);
@@ -141,11 +137,6 @@ export const importFromTagiNet = async (
             },
           ];
 
-          // Track daily totals for average calculation
-          const dateKey = `${currentDate.format("YYYY-MM-DD")}_${costCenter}`;
-          let daySum = 0;
-          let categoryCount = 0;
-
           for (const category of categories) {
             if (category.value > 0) {
               const key = `${currentDate.format("YYYY-MM-DD")}_${costCenter}_${
@@ -153,20 +144,7 @@ export const importFromTagiNet = async (
               }`;
               const currentValue = metricsMap.get(key) || 0;
               metricsMap.set(key, currentValue + category.value);
-
-              // Add to daily sum for average calculation
-              daySum += category.value;
-              categoryCount++;
             }
-          }
-
-          // Update totals for average calculation if we have categories with values
-          if (categoryCount > 0) {
-            const currentSum = dailySums.get(dateKey) || 0;
-            const currentCount = dailyCounts.get(dateKey) || 0;
-
-            dailySums.set(dateKey, currentSum + daySum);
-            dailyCounts.set(dateKey, currentCount + categoryCount);
           }
         }
 
@@ -178,39 +156,61 @@ export const importFromTagiNet = async (
     // Convert the map to MetricImport array
     const metricsToImport: MetricImport[] = [];
 
-    // First add all the category-specific metrics
-    for (const [key, value] of metricsMap.entries()) {
-      const [date, costCenter, metricTypeCategory] = key.split("_");
+    // Group metrics by date and cost center to calculate averages
+    const categoryMetricsByDateAndCenter = new Map<
+      string,
+      Map<string, number>
+    >();
 
-      metricsToImport.push({
-        timestampCompatibleWithGranularity: dayjs
-          .tz(date, timeZone)
-          .utc()
-          .toISOString(),
-        costCenter,
-        metricType: "Kinder",
-        value: value.toString(),
-        metricTypeCategory,
-      });
+    // First populate the grouped metrics map
+    for (const [key, value] of metricsMap.entries()) {
+      const [date, costCenter, category] = key.split("_");
+      const dateAndCenterKey = `${date}_${costCenter}`;
+
+      if (!categoryMetricsByDateAndCenter.has(dateAndCenterKey)) {
+        categoryMetricsByDateAndCenter.set(
+          dateAndCenterKey,
+          new Map<string, number>()
+        );
+      }
+
+      const categoryMap = categoryMetricsByDateAndCenter.get(dateAndCenterKey)!;
+      categoryMap.set(category, value);
     }
 
-    // Now calculate and add the average metrics
-    for (const [dateKey, sum] of dailySums.entries()) {
-      const count = dailyCounts.get(dateKey) || 1; // Avoid division by zero
-      const average = sum / count;
+    // Now process the grouped metrics and calculate averages
+    for (const [
+      dateAndCenterKey,
+      categoryMap,
+    ] of categoryMetricsByDateAndCenter.entries()) {
+      const [date, costCenter] = dateAndCenterKey.split("_");
+      const timestamp = dayjs.tz(date, timeZone).utc().toISOString();
 
-      const [date, costCenter] = dateKey.split("_");
+      // Add each category metric
+      for (const [category, value] of categoryMap.entries()) {
+        metricsToImport.push({
+          timestampCompatibleWithGranularity: timestamp,
+          costCenter,
+          metricType: "Kinder",
+          value: value.toString(),
+          metricTypeCategory: category,
+        });
+      }
 
-      metricsToImport.push({
-        timestampCompatibleWithGranularity: dayjs
-          .tz(date, timeZone)
-          .utc()
-          .toISOString(),
-        costCenter,
-        metricType: "Kinder",
-        value: average.toFixed(2), // Round to 2 decimal places
-        metricTypeCategory: "Durchschnitt",
-      });
+      // Calculate and add the average
+      if (categoryMap.size > 0) {
+        const categoryValues = Array.from(categoryMap.values());
+        const sum = categoryValues.reduce((acc, val) => acc + val, 0);
+        const average = sum / categoryMap.size;
+
+        metricsToImport.push({
+          timestampCompatibleWithGranularity: timestamp,
+          costCenter,
+          metricType: "Kinder",
+          value: average.toFixed(2),
+          metricTypeCategory: "Durchschnitt",
+        });
+      }
     }
 
     logger.info(
