@@ -10,6 +10,20 @@ interface HelloTESSInvoice {
   number: string;
   date: string;
   cancelled: boolean;
+  articles: Array<{
+    id: string;
+    articleGroupId: string;
+    articleGroupName: string;
+    plu: string;
+    name: string;
+    basePrice: number;
+    price: number;
+    quantity: number;
+    totalPrice: number;
+    taxRate: number;
+    dateAdded: string;
+    isTakeAway: boolean;
+  }>;
   totals: {
     gross: number;
     net: number;
@@ -22,6 +36,10 @@ interface HelloTESSInvoice {
       id: string;
       name: string;
       number: number;
+    };
+    table?: {
+      id: string;
+      name: string;
     };
   };
 }
@@ -45,13 +63,18 @@ export const importFromHelloTESS = async (
 
     const url = `https://${source.host}/v1/invoices/period`;
 
+    // Use simple YYYY-MM-DD format as required by the API
     const params = {
-      from: dateFrom.toISOString(),
-      until: dateUntil.toISOString(),
+      from: dateFrom.format("YYYY-MM-DD"),
+      until: dateUntil.format("YYYY-MM-DD"),
       ...(source.storeId ? { storeId: source.storeId } : {}),
     };
 
-    const response = await axios.get<{ data: HelloTESSInvoice[] }>(url, {
+    logger.info(
+      `Requesting URL: ${url} with params: ${JSON.stringify(params)}`
+    );
+
+    const response = await axios.get<HelloTESSInvoice[]>(url, {
       headers: {
         "hellotess-api-key": source.apiKey,
         "Content-Type": "application/json",
@@ -63,9 +86,8 @@ export const importFromHelloTESS = async (
       throw new Error("No data returned from helloTESS API");
     }
 
-    const invoices = Array.isArray(response.data)
-      ? response.data
-      : (response.data as any).data || [];
+    // Handle response - API returns array directly, not wrapped in a data property
+    const invoices = Array.isArray(response.data) ? response.data : [];
 
     logger.info(`Retrieved ${invoices.length} invoices from helloTESS`);
 
@@ -79,9 +101,9 @@ export const importFromHelloTESS = async (
       }
 
       const invoiceDate = dayjs(invoice.date).format("YYYY-MM-DD");
-      const storeId = invoice.location.store.id;
-      const storeName = invoice.location.store.name;
-      const grossAmount = invoice.totals.gross;
+      const storeName = invoice?.location?.store?.name?.trim();
+      // Convert from cents to actual currency value (if needed)
+      const grossAmount = invoice?.totals?.gross / 100 || 0;
 
       if (!dailyRevenue.has(invoiceDate)) {
         dailyRevenue.set(invoiceDate, new Map<string, number>());
@@ -97,11 +119,13 @@ export const importFromHelloTESS = async (
 
     dailyRevenue.forEach((storeMap, date) => {
       storeMap.forEach((total, storeName) => {
+        // Round to 2 decimal places
+        const roundedTotal = parseFloat(total.toFixed(2));
         metricsToImport.push({
           timestampCompatibleWithGranularity: date,
           costCenter: storeName,
           metricType: "Umsatz",
-          value: total.toString(),
+          value: roundedTotal.toString(),
           metricTypeCategory: source.metricTypeCategory,
         });
       });

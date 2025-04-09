@@ -10,15 +10,15 @@ export interface HelloTESSSourceConfig extends BaseSourceConfig {
   storeId?: string; // Optional store ID to filter by
 }
 
-export const appConfigHelloTESS: AppConfig = {
+export const appConfigSeerose: AppConfig = {
   sources: [
     {
-      name: "hellotess_revenue",
+      name: "revenue-actual",
       type: "hellotess",
       enabled: true,
       ignoredMissingCostCenters: [],
       autoCreateMetricType: false,
-      metricTypeCategory: "Umsatz Effektiv",
+      metricTypeCategory: "Ist",
       mergeMetricTypes: {
         enabled: true,
         name: "Umsatz",

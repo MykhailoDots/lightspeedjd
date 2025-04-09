@@ -1,6 +1,6 @@
 import { appConfigBindella } from "./configs/bindella";
 import { appConfigFWG } from "./configs/fwg";
-import { appConfigHelloTESS } from "./configs/seerose";
+import { appConfigSeerose } from "./configs/seerose";
 import { appConfigHotelMonopol } from "./configs/hotel-monopol";
 import { appConfigSmallFoot } from "./configs/small-foot";
 
@@ -26,8 +26,8 @@ export function getAppConfig() {
       return appConfigFWG;
     case "Hotel Monopol":
       return appConfigHotelMonopol;
-    case "HelloTESS":
-      return appConfigHelloTESS;
+    case "seerose":
+      return appConfigSeerose;
     case "small Foot":
       return appConfigSmallFoot;
     default:
@@ -65,7 +65,12 @@ export const appEnvironment = {
   },
 } as const;
 
-export type SOURCE_TYPE = "csv" | "snowflake" | "clock" | "hellotess" | "taginet";
+export type SOURCE_TYPE =
+  | "csv"
+  | "snowflake"
+  | "clock"
+  | "hellotess"
+  | "taginet";
 export interface TransformColumn {
   outputColumn: string;
   operation: "add" | "subtract";
