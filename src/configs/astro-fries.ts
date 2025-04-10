@@ -1,7 +1,7 @@
 import type { AppConfig, EmailSourceConfig } from "../config";
 import { getEnvVar } from "../config";
 
-export const appConfigRestaurant: AppConfig = {
+export const appConfigAstroFries: AppConfig = {
   sources: [
     {
       name: "revenue-actual",
@@ -22,7 +22,7 @@ export const appConfigRestaurant: AppConfig = {
       password: getEnvVar("EMAIL_PASSWORD", true),
       subjectFilter: "Ihr Lightspeed Restaurant-Bericht",
       attachmentNamePattern: ".*\\.csv$",
-      dateExtractionRegex: ".*_(\\d{8}).*\\.csv$",
+      dateExtractionRegex: ".*product_breakdown_(\\d{8})_.*\\.csv$",
       dateFormat: "YYYYMMDD",
       daysPast: 7,
       skipHeader: true,

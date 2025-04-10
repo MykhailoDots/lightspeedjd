@@ -3,6 +3,7 @@ import { appConfigFWG } from "./configs/fwg";
 import { appConfigDamnDelicious } from "./configs/damn-delicious";
 import { appConfigHotelMonopol } from "./configs/hotel-monopol";
 import { appConfigSmallFoot } from "./configs/small-foot";
+import { appConfigAstroFries } from "./configs/astro-fries";
 
 export function getEnvVar(name: string, isOptional = false): string {
   const value = process.env[name];
@@ -34,6 +35,8 @@ export function getAppConfig() {
       return appConfigDamnDelicious;
     case "small Foot":
       return appConfigSmallFoot;
+    case "astro-fries":
+      return appConfigAstroFries;
     default:
       throw new Error(`Unknown config file: ${configFile}`);
   }
