@@ -1,16 +1,7 @@
 import type { AppConfig, BaseSourceConfig } from "../config";
 import { getEnvVar } from "../config";
 
-export interface HelloTESSSourceConfig extends BaseSourceConfig {
-  type: "hellotess";
-  apiKey: string;
-  host: string; // e.g., "BACKOFFICE_NAME.hellotess.com"
-  daysPast: number;
-  daysFuture: number;
-  storeId?: string; // Optional store ID to filter by
-}
-
-export const appConfigSeerose: AppConfig = {
+export const appConfigDamnDelicious: AppConfig = {
   sources: [
     {
       name: "revenue-actual",

@@ -1,6 +1,6 @@
 import { appConfigBindella } from "./configs/bindella";
 import { appConfigFWG } from "./configs/fwg";
-import { appConfigSeerose } from "./configs/seerose";
+import { appConfigDamnDelicious } from "./configs/damn-delicious";
 import { appConfigHotelMonopol } from "./configs/hotel-monopol";
 import { appConfigSmallFoot } from "./configs/small-foot";
 
@@ -27,7 +27,11 @@ export function getAppConfig() {
     case "Hotel Monopol":
       return appConfigHotelMonopol;
     case "seerose":
-      return appConfigSeerose;
+      return appConfigDamnDelicious;
+    case "weisses-roessli":
+      return appConfigDamnDelicious;
+    case "coffee-and-plants":
+      return appConfigDamnDelicious;
     case "small Foot":
       return appConfigSmallFoot;
     default:

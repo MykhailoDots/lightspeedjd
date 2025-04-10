@@ -1,9 +1,9 @@
-import type { HelloTESSSourceConfig } from "../configs/seerose";
 import type { MetricImport } from "../index";
 import axios from "axios";
 import logger from "../helper/logger";
 import dayjs from "../helper/customDayJs";
 import { sendMessageToDiscord } from "../helper/discord";
+import type { HelloTESSSourceConfig } from "../config";
 
 interface HelloTESSInvoice {
   id: string;
