@@ -10,13 +10,10 @@ services:
       - NODE_ENV=production
     command: bun run start
     volumes:
-      - jobdone-metric-importer-logs:/app/logs
+      - ./logs/jobdone-metric-importer:/app/logs
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
-        max-size: "10m" # Max size of each log file
-        max-file: "5"   # Max number of log files to retain
-
-volumes:
-  jobdone-metric-importer-logs:
+        max-size: "10m"
+        max-file: "5"
