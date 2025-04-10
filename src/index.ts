@@ -16,10 +16,11 @@ import {
   refreshAuthTokenBearerToken,
   UpsertMetrics,
 } from "./util";
+import type { SourceConfigType } from "./config";
 import { importFromClock } from "./sources/clock";
 import { importFromTagiNet } from "./sources/taginet";
-import type { SourceConfigType } from "./config";
 import { importFromHelloTESS } from "./sources/hellotess";
+import { importFromEmail } from "./sources/mail";
 
 export interface MetricImport {
   timestampCompatibleWithGranularity: string;
@@ -339,6 +340,9 @@ const start = async () => {
           break;
         case "taginet":
           sourceMetrics = await importFromTagiNet(source, appConfig.timeZone);
+          break;
+        case "email":
+          sourceMetrics = await importFromEmail(source, appConfig.timeZone);
           break;
         default: {
           const unknownSource = source as { name?: string; type: string };

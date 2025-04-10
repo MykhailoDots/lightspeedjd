@@ -74,7 +74,9 @@ export type SOURCE_TYPE =
   | "snowflake"
   | "clock"
   | "hellotess"
-  | "taginet";
+  | "taginet"
+  | "email";
+
 export interface TransformColumn {
   outputColumn: string;
   operation: "add" | "subtract";
@@ -160,12 +162,36 @@ export interface TagiNetSourceConfig extends BaseSourceConfig {
   costCenterMapping?: Record<string, string>;
 }
 
+export interface EmailSourceConfig extends BaseSourceConfig {
+  type: "email";
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  password: string;
+  subjectFilter: string;
+  attachmentNamePattern: string;
+  dateExtractionRegex: string;
+  dateFormat: string;
+  daysPast: number;
+  skipHeader: boolean;
+  valueCell: {
+    column: number;
+    row: number;
+  };
+  costCenterCell: {
+    column: number;
+    row: number;
+  };
+}
+
 export type SourceConfigType =
   | CSVSourceConfig
   | SnowflakeSourceConfig
   | ClockSourceConfig
   | HelloTESSSourceConfig
-  | TagiNetSourceConfig;
+  | TagiNetSourceConfig
+  | EmailSourceConfig;
 
 export interface AppConfig {
   sources: SourceConfigType[];

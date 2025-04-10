@@ -1,4 +1,8 @@
-import { type AppConfig, type CSVSourceConfig, type TransformColumn } from "../config";
+import {
+  type AppConfig,
+  type CSVSourceConfig,
+  type TransformColumn,
+} from "../config";
 import { parse } from "csv-parse/sync";
 import fs from "fs";
 import type { MetricImport } from "..";
@@ -93,15 +97,16 @@ const parseCsv = async (
       metricType: row.metricType,
       value: row.value,
     }));
-  } catch (error) {
-    logger.error(`[${config.name}] Error parsing CSV: ${error.message}`);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`[${config.name}] Error parsing CSV: ${errorMessage}`);
     throw error;
   }
 };
 
 export const importFromCsv = async (
   config: CSVSourceConfig,
-  timeZone: string,
+  timeZone: string
 ): Promise<MetricImport[]> => {
   if (!config.filePath) {
     throw new Error(`[${config.name}] Source file path is not set`);
