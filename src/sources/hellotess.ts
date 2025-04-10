@@ -122,7 +122,7 @@ export const importFromHelloTESS = async (
         // Round to 2 decimal places
         const roundedTotal = parseFloat(total.toFixed(2));
         metricsToImport.push({
-          timestampCompatibleWithGranularity: date,
+          timestampCompatibleWithGranularity: dayjs.tz(date, timeZone).utc().toISOString(),
           costCenter: storeName,
           metricType: "Umsatz",
           value: roundedTotal.toString(),
