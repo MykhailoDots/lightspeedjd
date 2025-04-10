@@ -1,4 +1,4 @@
-import type { AppConfig, BaseSourceConfig } from "../config";
+import type { AppConfig, BaseSourceConfig, HelloTESSSourceConfig } from "../config";
 import { getEnvVar } from "../config";
 
 export const appConfigDamnDelicious: AppConfig = {
