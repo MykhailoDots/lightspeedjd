@@ -2,7 +2,6 @@ version: '3.8'
 
 services:
   jobdone-metric-importer:
-    container_name: jobdone-metric-importer
     build: 
       context: .
       no_cache: true
