@@ -15,6 +15,7 @@ export const appConfigDamnDelicious: AppConfig = {
         name: "Umsatz",
       },
       metricTypeMappings: [],
+      costCenterMappingField: "customId",
       apiKey: getEnvVar("HELLOTESS_API_KEY", true),
       host: getEnvVar("HELLOTESS_HOST", true),
       daysPast: 7,

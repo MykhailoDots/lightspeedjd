@@ -105,6 +105,10 @@ export interface BaseSourceConfig {
   mergeMetricTypes: MergeMetricTypesConfig;
   metricTypeMappings: MetricTypeMapping[];
   metricTypeCategory: string;
+  /**
+   * Field to use for cost center mapping: 'name' (default), 'customId', or 'customId2'.
+   */
+  costCenterMappingField: "name" | "customId" | "customId2";
 }
 
 export interface CSVSourceConfig extends BaseSourceConfig {

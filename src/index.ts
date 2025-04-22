@@ -50,12 +50,17 @@ const validateMetricsForSource = async (
     return c;
   });
 
+  const costCenterMappingField = sourceConfig.costCenterMappingField;
   const existingCostCenterIdsByNameMap: Map<string, string> = new Map();
   const existingMetricTypesIdsByNameMap: Map<string, string> = new Map();
   const metricTypeMappingsByNameMap = new Map();
 
+  // Build the map using the selected field
   existingCostCenters.costCenter.forEach((c) => {
-    existingCostCenterIdsByNameMap.set(c.name, c.id);
+    const key = c[costCenterMappingField as keyof typeof c];
+    if (key) {
+      existingCostCenterIdsByNameMap.set(key as string, c.id);
+    }
   });
   renamedExistingMetricTypes.forEach((m) => {
     existingMetricTypesIdsByNameMap.set(m.name, m.id);
@@ -71,9 +76,14 @@ const validateMetricsForSource = async (
     metricsToImport.map((m) => m.metricType)
   );
 
-  // Check by name excluding ignored cost centers
+  // Check by selected field excluding ignored cost centers
   const notExistingCostCenterNames = Array.from(costCenterNamesToImport)
-    .filter((c) => !existingCostCenters.costCenter.some((cc) => cc.name === c))
+    .filter(
+      (c) =>
+        !existingCostCenters.costCenter.some(
+          (cc) => cc[costCenterMappingField as keyof typeof cc] === c
+        )
+    )
     .filter((c) => !sourceConfig.ignoredMissingCostCenters.includes(c));
 
   const notExistingMetricTypeNames = Array.from(metricTypeNamesToImport).filter(

@@ -15,6 +15,7 @@ export const appConfigSmallFoot: AppConfig = {
         name: "",
       },
       metricTypeMappings: [],
+      costCenterMappingField: "name",
       apiUrl:
         getEnvVar("TAGINET_API_URL", true) ||
         "https://www.taginet.com/smallfoot/rest/v1/report/customizedReport/xq",

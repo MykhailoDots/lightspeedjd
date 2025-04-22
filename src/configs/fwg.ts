@@ -15,6 +15,7 @@ export const appConfigFWG: AppConfig = {
         name: "Umsatz",
       },
       metricTypeMappings: [],
+      costCenterMappingField: "name",
       account: getEnvVar("SNOWFLAKE_ACCOUNT", true),
       username: getEnvVar("SNOWFLAKE_USER", true),
       password: getEnvVar("SNOWFLAKE_PASSWORD", true),

@@ -15,6 +15,7 @@ export const appConfigHotelMonopol: AppConfig = {
         name: "",
       },
       metricTypeMappings: [],
+      costCenterMappingField: "name",
       costCenter: getEnvVar("CLOCK_COST_CENTER", true),
       accountId: getEnvVar("CLOCK_ACCOUNT_ID", true),
       subscriptionId: getEnvVar("CLOCK_SUBSCRIPTION_ID", true),
