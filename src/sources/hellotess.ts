@@ -102,8 +102,16 @@ export const importFromHelloTESS = async (
 
       const invoiceDate = dayjs(invoice.date).format("YYYY-MM-DD");
       const storeName = invoice?.location?.store?.name?.trim();
+
+      // Determine whether to use net or gross revenue based on configuration
+      // Default to net if not specified
+      const revenueType = source.revenueType || "net";
+
       // Convert from cents to actual currency value (if needed)
-      const grossAmount = invoice?.totals?.gross / 100 || 0;
+      const amount =
+        revenueType === "gross"
+          ? invoice?.totals?.gross / 100 || 0
+          : invoice?.totals?.net / 100 || 0;
 
       if (!dailyRevenue.has(invoiceDate)) {
         dailyRevenue.set(invoiceDate, new Map<string, number>());
@@ -111,7 +119,7 @@ export const importFromHelloTESS = async (
 
       const dateMap = dailyRevenue.get(invoiceDate)!;
       const currentTotal = dateMap.get(storeName) || 0;
-      dateMap.set(storeName, currentTotal + grossAmount);
+      dateMap.set(storeName, currentTotal + amount);
     });
 
     // Convert to MetricImport format
@@ -122,7 +130,10 @@ export const importFromHelloTESS = async (
         // Round to 2 decimal places
         const roundedTotal = parseFloat(total.toFixed(2));
         metricsToImport.push({
-          timestampCompatibleWithGranularity: dayjs.tz(date, timeZone).utc().toISOString(),
+          timestampCompatibleWithGranularity: dayjs
+            .tz(date, timeZone)
+            .utc()
+            .toISOString(),
           costCenter: storeName,
           metricType: "Umsatz",
           value: roundedTotal.toString(),

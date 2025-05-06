@@ -1,4 +1,7 @@
-import type { AppConfig, BaseSourceConfig, HelloTESSSourceConfig } from "../config";
+import type {
+  AppConfig,
+  HelloTESSSourceConfig,
+} from "../config";
 import { getEnvVar } from "../config";
 
 export const appConfigDamnDelicious: AppConfig = {
@@ -21,6 +24,7 @@ export const appConfigDamnDelicious: AppConfig = {
       daysPast: 7,
       daysFuture: 0,
       storeId: getEnvVar("HELLOTESS_STORE_ID", true), // Optional filter by store
+      revenueType: "net", // Can be 'net' or 'gross', defaults to 'net' if not specified
     } as HelloTESSSourceConfig,
   ],
   diskFreeSpaceThresholdInPercent: 20,

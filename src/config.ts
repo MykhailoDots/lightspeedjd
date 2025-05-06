@@ -154,6 +154,7 @@ export interface HelloTESSSourceConfig extends BaseSourceConfig {
   daysPast: number;
   daysFuture: number;
   storeId?: string;
+  revenueType?: "net" | "gross"; // default is 'net' if not specified
 }
 
 export interface TagiNetSourceConfig extends BaseSourceConfig {
