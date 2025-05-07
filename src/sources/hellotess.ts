@@ -4,6 +4,8 @@ import logger from "../helper/logger";
 import dayjs from "../helper/customDayJs";
 import { sendMessageToDiscord } from "../helper/discord";
 import type { HelloTESSSourceConfig } from "../config";
+import path from "path";
+import fs from "fs/promises";
 
 interface HelloTESSInvoice {
   id: string;
@@ -44,6 +46,146 @@ interface HelloTESSInvoice {
   };
 }
 
+// Store historical import status in a file to avoid repeated imports
+const HISTORICAL_IMPORT_STATUS_FILE = ".hellotess_historical_import_done";
+
+const checkHistoricalImportDone = async (
+  sourceName: string,
+  host: string
+): Promise<boolean> => {
+  try {
+    const statusFilePath = path.join(
+      process.cwd(),
+      `${HISTORICAL_IMPORT_STATUS_FILE}_${sourceName}_${host}`
+    );
+    await fs.access(statusFilePath);
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
+const markHistoricalImportDone = async (
+  sourceName: string,
+  host: string
+): Promise<void> => {
+  try {
+    const statusFilePath = path.join(
+      process.cwd(),
+      `${HISTORICAL_IMPORT_STATUS_FILE}_${sourceName}_${host}`
+    );
+    await fs.writeFile(statusFilePath, new Date().toISOString());
+    logger.info(`[${sourceName}] Historical import marked as completed`);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(
+      `[${sourceName}] Failed to mark historical import as completed: ${errorMessage}`
+    );
+  }
+};
+
+// Helper function to process invoices and convert to metric imports
+const processInvoices = (
+  invoices: HelloTESSInvoice[],
+  source: HelloTESSSourceConfig,
+  timeZone: string
+): MetricImport[] => {
+  // Group invoices by date and store
+  const dailyRevenue = new Map<string, Map<string, number>>();
+
+  invoices.forEach((invoice: HelloTESSInvoice) => {
+    // Skip cancelled invoices
+    if (invoice.cancelled) {
+      return;
+    }
+
+    const invoiceDate = dayjs(invoice.date).format("YYYY-MM-DD");
+    const storeName = invoice?.location?.store?.name?.trim();
+
+    // Determine whether to use net or gross revenue based on configuration
+    // Default to net if not specified
+    const revenueType = source.revenueType || "net";
+
+    // Convert from cents to actual currency value (if needed)
+    const amount =
+      revenueType === "gross"
+        ? invoice?.totals?.gross / 100 || 0
+        : invoice?.totals?.net / 100 || 0;
+
+    if (!dailyRevenue.has(invoiceDate)) {
+      dailyRevenue.set(invoiceDate, new Map<string, number>());
+    }
+
+    const dateMap = dailyRevenue.get(invoiceDate)!;
+    const currentTotal = dateMap.get(storeName) || 0;
+    dateMap.set(storeName, currentTotal + amount);
+  });
+
+  // Convert to MetricImport format
+  const metricsToImport: MetricImport[] = [];
+
+  dailyRevenue.forEach((storeMap, date) => {
+    storeMap.forEach((total, storeName) => {
+      // Round to 2 decimal places
+      const roundedTotal = parseFloat(total.toFixed(2));
+      metricsToImport.push({
+        timestampCompatibleWithGranularity: dayjs
+          .tz(date, timeZone)
+          .utc()
+          .toISOString(),
+        costCenter: storeName,
+        metricType: "Umsatz",
+        value: roundedTotal.toString(),
+        metricTypeCategory: source.metricTypeCategory,
+      });
+    });
+  });
+
+  return metricsToImport;
+};
+
+// Function to fetch invoices for a specific date range
+const fetchInvoices = async (
+  source: HelloTESSSourceConfig,
+  dateFrom: string,
+  dateUntil: string
+): Promise<HelloTESSInvoice[]> => {
+  const url = `https://${source.host}/v1/invoices/period`;
+
+  // Lucky: 2025-05-07: Unsure if we need to convert Zurich or config.timeZone to UTC
+  // Add specific time components to the dates (00:00:00 for from, 23:59:59 for until)
+  const fromWithTime = `${dateFrom}T00:00:00`;
+  const untilWithTime = `${dateUntil}T23:59:59`;
+
+  // Use date format with time as required by the API
+  const params = {
+    from: fromWithTime,
+    until: untilWithTime,
+    ...(source.storeId ? { storeId: source.storeId } : {}),
+  };
+
+  logger.info(
+    `[${source.name}] Requesting URL: ${url} with params: ${JSON.stringify(
+      params
+    )}`
+  );
+
+  const response = await axios.get<HelloTESSInvoice[]>(url, {
+    headers: {
+      "hellotess-api-key": source.apiKey,
+      "Content-Type": "application/json",
+    },
+    params,
+  });
+
+  if (!response.data) {
+    throw new Error("No data returned from helloTESS API");
+  }
+
+  // Handle response - API returns array directly, not wrapped in a data property
+  return Array.isArray(response.data) ? response.data : [];
+};
+
 export const importFromHelloTESS = async (
   source: HelloTESSSourceConfig,
   timeZone: string
@@ -51,102 +193,122 @@ export const importFromHelloTESS = async (
   logger.info(`Starting helloTESS import for source: ${source.name}`);
 
   try {
-    // Calculate date range
+    let allMetricsToImport: MetricImport[] = [];
+
+    // Check if we need to do a historical import
+    const shouldRunHistoricalImport =
+      source.historicalImport?.enabled &&
+      !(await checkHistoricalImportDone(source.name, source.host));
+
+    if (shouldRunHistoricalImport) {
+      logger.info(
+        `[${source.name}] Starting historical data import from ${
+          source.historicalImport!.startDate
+        }`
+      );
+
+      const startDate = dayjs(source.historicalImport!.startDate);
+      const endDate = dayjs().subtract(1, "day").endOf("day"); // Yesterday end of day
+
+      // Use batchSizeInDays or default to 30 days per request
+      const batchSizeInDays = source.historicalImport!.batchSizeInDays || 30;
+
+      // Get rate limit delay in ms (default: 1000ms)
+      const rateLimitDelay = source.historicalImport!.rateLimitDelayMs || 1000;
+
+      // Calculate number of batches needed
+      let currentDate = startDate;
+
+      while (currentDate.isBefore(endDate)) {
+        const batchEndDate = dayjs(currentDate).add(
+          batchSizeInDays - 1,
+          "days"
+        );
+        const actualEndDate = batchEndDate.isAfter(endDate)
+          ? endDate
+          : batchEndDate;
+
+        logger.info(
+          `[${source.name}] Historical import batch: ${currentDate.format(
+            "YYYY-MM-DD"
+          )} to ${actualEndDate.format("YYYY-MM-DD")}`
+        );
+
+        const invoices = await fetchInvoices(
+          source,
+          currentDate.format("YYYY-MM-DD"),
+          actualEndDate.format("YYYY-MM-DD")
+        );
+
+        logger.info(
+          `[${source.name}] Retrieved ${invoices.length} historical invoices from helloTESS`
+        );
+
+        // Process the invoices
+        const batchMetrics = processInvoices(invoices, source, timeZone);
+        allMetricsToImport = [...allMetricsToImport, ...batchMetrics];
+
+        // Move to next batch
+        currentDate = actualEndDate.add(1, "day");
+
+        // Wait after each batch to avoid rate limits
+        logger.debug(
+          `[${source.name}] Waiting ${rateLimitDelay}ms to avoid rate limits`
+        );
+        await new Promise((resolve) => setTimeout(resolve, rateLimitDelay));
+      }
+
+      logger.info(
+        `[${source.name}] Historical import completed: ${allMetricsToImport.length} metrics imported`
+      );
+
+      // Mark historical import as done
+      await markHistoricalImportDone(source.name, source.host);
+    }
+
+    // Regular import for recent data
+    // Calculate date range for regular sync
     const dateFrom = dayjs().subtract(source.daysPast, "day").startOf("day");
     const dateUntil = dayjs().add(source.daysFuture, "day").endOf("day");
 
     logger.info(
-      `Fetching helloTESS invoices from ${dateFrom.format(
+      `[${
+        source.name
+      }] Fetching recent helloTESS invoices from ${dateFrom.format(
         "YYYY-MM-DD"
       )} to ${dateUntil.format("YYYY-MM-DD")}`
     );
 
-    const url = `https://${source.host}/v1/invoices/period`;
-
-    // Use simple YYYY-MM-DD format as required by the API
-    const params = {
-      from: dateFrom.format("YYYY-MM-DD"),
-      until: dateUntil.format("YYYY-MM-DD"),
-      ...(source.storeId ? { storeId: source.storeId } : {}),
-    };
-
-    logger.info(
-      `Requesting URL: ${url} with params: ${JSON.stringify(params)}`
+    const recentInvoices = await fetchInvoices(
+      source,
+      dateFrom.format("YYYY-MM-DD"),
+      dateUntil.format("YYYY-MM-DD")
     );
 
-    const response = await axios.get<HelloTESSInvoice[]>(url, {
-      headers: {
-        "hellotess-api-key": source.apiKey,
-        "Content-Type": "application/json",
-      },
-      params,
-    });
+    logger.info(
+      `[${source.name}] Retrieved ${recentInvoices.length} recent invoices from helloTESS`
+    );
 
-    if (!response.data) {
-      throw new Error("No data returned from helloTESS API");
-    }
+    // Process recent invoices
+    const recentMetrics = processInvoices(recentInvoices, source, timeZone);
 
-    // Handle response - API returns array directly, not wrapped in a data property
-    const invoices = Array.isArray(response.data) ? response.data : [];
+    // Combine historical and recent metrics, avoiding duplicates
+    const seenKeys = new Set();
+    const uniqueMetrics: MetricImport[] = [];
 
-    logger.info(`Retrieved ${invoices.length} invoices from helloTESS`);
-
-    // Group invoices by date and store
-    const dailyRevenue = new Map<string, Map<string, number>>();
-
-    invoices.forEach((invoice: HelloTESSInvoice) => {
-      // Skip cancelled invoices
-      if (invoice.cancelled) {
-        return;
+    [...allMetricsToImport, ...recentMetrics].forEach((metric) => {
+      const key = `${metric.timestampCompatibleWithGranularity}_${metric.costCenter}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        uniqueMetrics.push(metric);
       }
-
-      const invoiceDate = dayjs(invoice.date).format("YYYY-MM-DD");
-      const storeName = invoice?.location?.store?.name?.trim();
-
-      // Determine whether to use net or gross revenue based on configuration
-      // Default to net if not specified
-      const revenueType = source.revenueType || "net";
-
-      // Convert from cents to actual currency value (if needed)
-      const amount =
-        revenueType === "gross"
-          ? invoice?.totals?.gross / 100 || 0
-          : invoice?.totals?.net / 100 || 0;
-
-      if (!dailyRevenue.has(invoiceDate)) {
-        dailyRevenue.set(invoiceDate, new Map<string, number>());
-      }
-
-      const dateMap = dailyRevenue.get(invoiceDate)!;
-      const currentTotal = dateMap.get(storeName) || 0;
-      dateMap.set(storeName, currentTotal + amount);
-    });
-
-    // Convert to MetricImport format
-    const metricsToImport: MetricImport[] = [];
-
-    dailyRevenue.forEach((storeMap, date) => {
-      storeMap.forEach((total, storeName) => {
-        // Round to 2 decimal places
-        const roundedTotal = parseFloat(total.toFixed(2));
-        metricsToImport.push({
-          timestampCompatibleWithGranularity: dayjs
-            .tz(date, timeZone)
-            .utc()
-            .toISOString(),
-          costCenter: storeName,
-          metricType: "Umsatz",
-          value: roundedTotal.toString(),
-          metricTypeCategory: source.metricTypeCategory,
-        });
-      });
     });
 
     logger.info(
-      `Processed ${metricsToImport.length} metrics from helloTESS invoices`
+      `[${source.name}] Total metrics to import: ${uniqueMetrics.length}`
     );
 
-    return metricsToImport;
+    return uniqueMetrics;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     const message = `Error importing from helloTESS: ${errorMessage}`;

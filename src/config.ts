@@ -155,6 +155,13 @@ export interface HelloTESSSourceConfig extends BaseSourceConfig {
   daysFuture: number;
   storeId?: string;
   revenueType?: "net" | "gross"; // default is 'net' if not specified
+  // Historical data import options
+  historicalImport?: {
+    enabled: boolean;
+    startDate: string; // Format: YYYY-MM-DD
+    batchSizeInDays?: number; // Number of days to fetch per API request
+    rateLimitDelayMs?: number; // Delay between batch requests to avoid rate limits (default: 1000ms)
+  };
 }
 
 export interface TagiNetSourceConfig extends BaseSourceConfig {
