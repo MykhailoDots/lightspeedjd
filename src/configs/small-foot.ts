@@ -24,9 +24,7 @@ export const appConfigSmallFoot: AppConfig = {
       password: getEnvVar("TAGINET_PASSWORD", true),
       daysPast: 7,
       daysFuture: 30,
-      ageWeightThresholdMonths: 18, // Children <= 18 months get higher weight
-      youngChildWeight: 1.5, // Weight for children <= threshold
-      olderChildWeight: 1, // Weight for older children
+      unweightedCostCenters: [], // Add mandanten here that should not apply weights
       costCenterMapping: {
         Aarau: "202 Aarau",
         Andermatt: "401 Andermatt",
@@ -67,7 +65,7 @@ export const appConfigSmallFoot: AppConfig = {
         Vitznau: "119 Vitznau",
         Wuerzenbach: "112 Luzern Würzenbach",
       },
-    } as TagiNetSourceConfig,
+    },
   ],
   diskFreeSpaceThresholdInPercent: 20,
   timeZone: "Europe/Zurich",

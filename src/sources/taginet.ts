@@ -30,6 +30,35 @@ interface TagiNetEntry {
   view_rep_atomic_belegungsarten_fld_id: string;
 }
 
+/**
+ * Calculate weight for a child based on their age at the booking date
+ * @param birthDate - Child's birth date in YYYY-MM-DD format
+ * @param bookingDate - Booking date in YYYY-MM-DD format
+ * @returns Weight multiplier based on age rules
+ */
+export function calculateChildWeight(
+  birthDate: string,
+  bookingDate: string
+): number {
+  const birth = dayjs(birthDate);
+  const booking = dayjs(bookingDate);
+  const ageInMonths = booking.diff(birth, "month");
+
+  // Check if child turns 5 after June 30th in the booking year
+  const yearOfBooking = booking.year();
+  const fifthBirthday = birth.add(5, "year");
+  const june30 = dayjs(`${yearOfBooking}-06-30`);
+
+  if (fifthBirthday.isAfter(june30) && fifthBirthday.year() === yearOfBooking) {
+    return 0.5;
+  }
+
+  // Age-based weights
+  if (ageInMonths < 18) return 1.5;
+  if (ageInMonths <= 36) return 1.0;
+  return 0.8;
+}
+
 export const importFromTagiNet = async (
   source: TagiNetSourceConfig,
   timeZone: string
@@ -80,17 +109,6 @@ export const importFromTagiNet = async (
         continue;
       }
 
-      // Calculate child's age in months
-      const birthDate = dayjs(entry.k_geburtsdatum);
-      const today = dayjs();
-      const ageInMonths = today.diff(birthDate, "month");
-
-      // Determine weight based on age
-      const weight =
-        ageInMonths <= source.ageWeightThresholdMonths
-          ? source.youngChildWeight
-          : source.olderChildWeight;
-
       // Get cost center - either map the mandant name or use directly
       const costCenter =
         source.costCenterMapping?.[entry.mandant] || entry.mandant;
@@ -113,6 +131,25 @@ export const importFromTagiNet = async (
         const adjustedDayJsWeekday = dayJsWeekday === 0 ? 7 : dayJsWeekday; // Convert to 1-7 format
 
         if (adjustedDayJsWeekday === entryWeekday) {
+          // Check if this cost center should use unweighted values
+          const isUnweighted = source.unweightedCostCenters?.includes(
+            entry.mandant
+          );
+
+          if (isUnweighted) {
+            logger.debug(
+              `[${source.name}] Using unweighted values for cost center: ${costCenter}`
+            );
+          }
+
+          // Calculate weight based on age or use 1 for unweighted centers
+          const weight = isUnweighted
+            ? 1
+            : calculateChildWeight(
+                entry.k_geburtsdatum,
+                currentDate.format("YYYY-MM-DD")
+              );
+
           // Process each category/module
           const categories = [
             {

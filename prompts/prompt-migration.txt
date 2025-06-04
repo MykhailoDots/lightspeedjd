@@ -1,0 +1,1713 @@
+Can you help me to  migrate my code?
+
+We changed the response and input
+
+BEFORE:
+---
+query MetricTypesByOrganizationId($organizationId: uuid = "") {
+  metricType(where: {organizationId: {_eq: $organizationId}, deletedAt: {_is_null: true}}) {
+      id
+      name
+  }
+}
+
+---
+mutation saveMetrics(
+  $input: SaveMetricInput = {
+    details: { field: "", timeZone: "", timestamp: "" }
+  }
+) {
+  jobdoneCustom1 {
+    saveMetric(input: $input)
+  }
+}
+---
+mutation createMetricType(
+  $input: CreateMetricTypeInput = {
+    colorCode: ""
+    displayDecimals: 10
+    displayUnit: ""
+    granularity: ""
+    icon: ""
+    isActualEditable: false
+    isBudgetEditable: false
+    isForecastedEditable: false
+    isScheduledEditable: false
+    name: ""
+    targetOrBudgetType: ""
+  }
+) {
+  jobdoneCustom1 {
+    createMetricType(input: $input) {
+      colorCode
+      displayDecimals
+      displayUnit
+      granularity
+      icon
+      id
+      isActualEditable
+      isBudgetEditable
+      isForecastedEditable
+      isScheduledEditable
+      name
+      targetOrBudgetType
+    }
+  }
+}
+---
+
+NEW:
+---
+query MetricTypesByOrganizationId($organizationId: uuid = "") {
+  metricType(where: {organizationId: {_eq: $organizationId}, deletedAt: {_is_null: true}}) {
+    id
+    name
+    status
+    metricTypeCategories {
+      id
+      name
+      type
+      isEditable
+    }
+  }
+}
+---
+mutation saveMetrics(
+  $input: SaveMetricInput = {
+    details: {
+      costCenterId: ""
+      metricTypeCategoryId: ""
+      metricTypeId: ""
+      timeZone: ""
+      timestamp: ""
+    }
+  }
+) {
+  jobdoneCustom1 {
+    saveMetric(input: $input)
+  }
+}
+---
+mutation createMetricType(
+  $input: CreateMetricTypeInput = {
+    colorCode: ""
+    displayDecimals: 10
+    displayUnit: CURRENCY
+    granularity: FIFTEEN_MINUTE
+    icon: ""
+    name: ""
+    type: COST
+    metricTypeCategories: {
+      isEditable: false
+      name: ""
+      showInPeriods: CURRENT
+      type: ACTUAL
+    }
+  }
+) {
+  jobdoneCustom1 {
+    createMetricType(input: $input) {
+      colorCode
+      displayDecimals
+      displayUnit
+      granularity
+      icon
+      id
+      name
+      type
+    }
+  }
+}
+---
+
+The main change is not, we do not have static actual, scheduled, forecasted etc, but we moved them to dynamic categories. A metricType can have multiple metricTypeCategories
+In terms of the config I think we can also make it simpler.
+
+In the app, the main change is the "targetField", which was referring to actual, scheduled etc, those were static table columns, but now we have them dynamic. I renamed it in the config to metricTypeCategory. 
+
+We can then based on the category name, check if this category is inside a metric and use that.
+
+I can attach the updated configs here:
+
+
+===============================
+Project Name: 'jobdone-metric-importer'
+File Path: 'src/configs/bindella.ts'
+File Content:
+```ts
+import type { AppConfig, CSVSourceConfig } from "../config";
+
+export const appConfigBindella: AppConfig = {
+  sources: [
+    {
+      name: "gastro_sales",
+      type: "csv",
+      enabled: true,
+      ignoredMissingCostCenters: [],
+      autoCreateMetricType: false,
+      metricTypeCategory: "Ist",
+      mergeMetricTypes: {
+        enabled: true,
+        name: "Umsatz",
+      },
+      metricTypeMappings: [
+        {
+          importName: "Verkauf Bier",
+          jobdoneName: "Bier",
+        },
+        {
+          importName: "Verkauf Kaffee/Tee/Ovo",
+          jobdoneName: "Kaffee/Tee/Ovo",
+        },
+        {
+          importName: "Verkauf Küche",
+          jobdoneName: "Küche",
+        },
+        {
+          importName: "Verkauf Mineralwasser",
+          jobdoneName: "Mineralwasser",
+        },
+        {
+          importName: "Verkauf Pizza",
+          jobdoneName: "Pizza",
+        },
+        {
+          importName: "Verkauf Spirituosen/Liq.",
+          jobdoneName: "Spirituosen/Liq.",
+        },
+        {
+          importName: "Verkauf Vinoteca",
+          jobdoneName: "Vinoteca",
+        },
+        {
+          importName: "Verkauf Weine",
+          jobdoneName: "Weine",
+        },
+      ],
+      filePath: "/home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv",
+      importColumns: ["date", "costCenter", "metricType", "value", "tax"],
+      transformColumns: [
+        {
+          outputColumn: "value",
+          operation: "add",
+          operands: ["value", "tax"],
+        },
+      ],
+      dateFormat: "DD.MM.YYYY",
+    } satisfies CSVSourceConfig,
+  ],
+  diskFreeSpaceThresholdInPercent: 20,
+  timeZone: "Europe/Zurich",
+};
+
+```
+===============================
+
+===============================
+Project Name: 'jobdone-metric-importer'
+File Path: 'src/configs/fwg.ts'
+File Content:
+```ts
+import type { AppConfig, SnowflakeSourceConfig } from "../config";
+import { getEnvVar } from "../config";
+
+export const appConfigFWG: AppConfig = {
+  sources: [
+    {
+      name: "daily_revenue",
+      type: "snowflake",
+      enabled: true,
+      ignoredMissingCostCenters: ["308", "309", "312", "314", "1000"],
+      autoCreateMetricType: false,
+      metricTypeCategory: "Umsatz Effektiv",
+      mergeMetricTypes: {
+        enabled: true,
+        name: "Umsatz",
+      },
+      metricTypeMappings: [],
+      account: getEnvVar("SNOWFLAKE_ACCOUNT"),
+      username: getEnvVar("SNOWFLAKE_USER"),
+      password: getEnvVar("SNOWFLAKE_PASSWORD"),
+      database: "DWH",
+      schema: "DBT_DWH",
+      warehouse: "COMPUTE_WH",
+      role: "DBT",
+      daysPast: 7,
+      daysFuture: 0,
+      query: `
+    SELECT
+      TO_VARCHAR(DATUM, 'YYYY-MM-DD') AS "timestamp",
+      TRIM(TO_VARCHAR(RESTAURANTID)) AS "costCenter",
+      'Umsatz' AS "metricType",
+      SUM(NETTOTAL_TOTALFC) AS "value"
+    FROM FACTTRANSAKTIONEN
+    WHERE DATUM BETWEEN ? AND ?
+    GROUP BY RESTAURANTID, DATUM
+    ORDER BY RESTAURANTID, DATUM;
+          `,
+    },
+    {
+      name: "monthly_costs",
+      type: "snowflake",
+      enabled: true,
+      ignoredMissingCostCenters: [],
+      autoCreateMetricType: false,
+      metricTypeCategory: "Umsatz gem. Stellenplan",
+      mergeMetricTypes: {
+        enabled: true,
+        name: "Umsatz",
+      },
+      metricTypeMappings: [],
+      account: getEnvVar("SNOWFLAKE_ACCOUNT"),
+      username: getEnvVar("SNOWFLAKE_USER"),
+      password: getEnvVar("SNOWFLAKE_PASSWORD"),
+      database: "DWH",
+      schema: "DBT_SHARED_MART",
+      warehouse: "COMPUTE_WH",
+      role: "DBT",
+      daysPast: 30,
+      daysFuture: 0,
+      // TODO: SCOPE QUERY to X days into the past, right now we import everything
+      query: `
+WITH date_spine AS (
+    -- Generate dates from today for 1 year
+    SELECT DISTINCT
+        DATEADD(DAY, seq4(), CURRENT_DATE()) AS date
+    FROM TABLE(GENERATOR(ROWCOUNT => 366))  -- 366 to include potential leap year
+    WHERE date <= DATEADD(YEAR, 1, CURRENT_DATE())
+),
+valid_periods AS (
+    SELECT 
+        d.date,
+        f.OUTLET_ID,
+        f.ART,
+        f.GUELTIG_AB,
+        f.MONTAG, f.DIENSTAG, f.MITTWOCH, f.DONNERSTAG, f.FREITAG, f.SAMSTAG, f.SONNTAG,
+        -- Get the most recent GUELTIG_AB for each date
+        ROW_NUMBER() OVER (
+            PARTITION BY f.OUTLET_ID, d.date 
+            ORDER BY f.GUELTIG_AB DESC
+        ) as rn
+    FROM date_spine d
+    CROSS JOIN FACT_ZIELSTELLENPLAN f
+    WHERE f.ART = 'Umsatz'
+    AND d.date >= f.GUELTIG_AB  -- Only consider rows where GUELTIG_AB is before or equal to the date
+),
+filtered_periods AS (
+    SELECT *
+    FROM valid_periods
+    WHERE rn = 1  -- Take only the most recent valid record for each date
+),
+unpivoted_values AS (
+    SELECT
+        date,
+        OUTLET_ID,
+        'Umsatz' as metricType,
+        CASE DAYOFWEEK(date)
+            WHEN 0 THEN SONNTAG
+            WHEN 1 THEN MONTAG
+            WHEN 2 THEN DIENSTAG
+            WHEN 3 THEN MITTWOCH
+            WHEN 4 THEN DONNERSTAG
+            WHEN 5 THEN FREITAG
+            WHEN 6 THEN SAMSTAG
+        END as value
+    FROM filtered_periods
+)
+SELECT
+    TO_CHAR(date, 'YYYY-MM-DD') AS "timestamp",
+    OUTLET_ID AS "costCenter",
+    metricType AS "metricType",
+    value AS "value"
+FROM unpivoted_values
+ORDER BY OUTLET_ID, date;
+          `,
+    },
+    {
+      name: "monthly_target",
+      type: "snowflake",
+      enabled: true,
+      ignoredMissingCostCenters: [],
+      autoCreateMetricType: false,
+      metricTypeCategory: "Umsatz gem. Monatsziel",
+      mergeMetricTypes: {
+        enabled: true,
+        name: "Umsatz",
+      },
+      metricTypeMappings: [],
+      account: getEnvVar("SNOWFLAKE_ACCOUNT"),
+      username: getEnvVar("SNOWFLAKE_USER"),
+      password: getEnvVar("SNOWFLAKE_PASSWORD"),
+      database: "DWH",
+      schema: "DBT_SHARED_MART",
+      warehouse: "COMPUTE_WH",
+      role: "DBT",
+      daysPast: 30,
+      daysFuture: 0,
+      // TODO: SCOPE QUERY to X days into the past, right now we import everything
+      query: `
+WITH latest_monthly_targets AS (
+    -- Get the latest loaded value for each month and outlet
+    SELECT 
+        OUTLET_ID,
+        DATE_TRUNC('MONTH', DATUM) as month_start,
+        LAST_DAY(DATUM) as month_end,
+        MONATSZIEL_UMSATZ,
+        DAYOFMONTH(LAST_DAY(DATUM)) as days_in_month,
+        ROUND(MONATSZIEL_UMSATZ / DAYOFMONTH(LAST_DAY(DATUM)), 2) as daily_target,
+        ROW_NUMBER() OVER (
+            PARTITION BY OUTLET_ID, DATE_TRUNC('MONTH', DATUM)
+            ORDER BY LOADDATE DESC
+        ) as rn
+    FROM FACT_EINGABE_MONATSZIEL
+    WHERE MONATSZIEL_UMSATZ > 0
+),
+valid_targets AS (
+    SELECT *
+    FROM latest_monthly_targets
+    WHERE rn = 1
+),
+date_spine AS (
+    -- Generate dates from today for 1 year
+    SELECT DISTINCT
+        DATEADD(DAY, seq4(), CURRENT_DATE()) AS date
+    FROM TABLE(GENERATOR(ROWCOUNT => 366))  -- 366 to include potential leap year
+    WHERE date <= DATEADD(YEAR, 1, CURRENT_DATE())
+),
+monthly_values AS (
+    -- For each date, find the most recent monthly target
+    SELECT 
+        d.date,
+        v.OUTLET_ID,
+        v.daily_target,
+        ROW_NUMBER() OVER (
+            PARTITION BY d.date, v.OUTLET_ID 
+            ORDER BY v.month_start DESC
+        ) as latest_target
+    FROM date_spine d
+    CROSS JOIN valid_targets v
+    WHERE v.month_start <= d.date  -- Only consider targets from months before or equal to the date
+)
+SELECT 
+    TO_CHAR(date, 'YYYY-MM-DD') as "timestamp",
+    OUTLET_ID as "costCenter",
+    'Umsatz' as "metricType",
+    daily_target as "value"
+FROM monthly_values
+WHERE latest_target = 1
+    AND daily_target IS NOT NULL
+ORDER BY OUTLET_ID, date;
+        `,
+    },
+  ],
+  diskFreeSpaceThresholdInPercent: 20,
+  timeZone: "Europe/Zurich",
+};
+
+```
+===============================
+
+===============================
+Project Name: 'jobdone-metric-importer'
+File Path: 'src/configs/hotel-monopol.ts'
+File Content:
+```ts
+import type { AppConfig, ClockSourceConfig } from "../config";
+import { getEnvVar } from "../config";
+
+export const appConfigHotelMonopol: AppConfig = {
+  sources: [
+    {
+      name: "hotel_occupancy",
+      type: "clock",
+      enabled: true,
+      ignoredMissingCostCenters: [],
+      autoCreateMetricType: false,
+      metricTypeCategory: "not-applicable",
+      mergeMetricTypes: {
+        enabled: false,
+        name: "",
+      },
+      metricTypeMappings: [],
+      costCenter: getEnvVar("CLOCK_COST_CENTER", true),
+      accountId: getEnvVar("CLOCK_ACCOUNT_ID", true),
+      subscriptionId: getEnvVar("CLOCK_SUBSCRIPTION_ID", true),
+      subscriptionRegion: getEnvVar("CLOCK_SUBSCRIPTION_REGION", true),
+      baseApi: getEnvVar("CLOCK_BASE_API", true),
+      apiUser: getEnvVar("CLOCK_API_USER", true),
+      apiKey: getEnvVar("CLOCK_API_KEY", true),
+      isCacheEnabled: false,
+      isDoNotDeleteCacheEnabled: false,
+      metricType: getEnvVar("CLOCK_METRIC_TYPE", true),
+    } satisfies ClockSourceConfig,
+  ],
+  diskFreeSpaceThresholdInPercent: 20,
+  timeZone: "Europe/Zurich",
+};
+
+```
+===============================
+
+
+Here are the other things we fetch:
+
+
+===============================
+Project Name: 'jobdone-metric-importer'
+File Path: 'src/api/costCentersByOrganizationId.graphql'
+File Content:
+```graphql
+query CostCentersByOrganizationId($organizationId: uuid = "") {
+    costCenter(where: {organizationId: {_eq: $organizationId}, deletedAt: {_is_null: true}, status: {_eq: "ACTIVE"}}) {
+        id
+        name
+        description
+        status
+        customId
+        customId2
+    }
+}
+
+```
+===============================
+
+Please note that Monopol Clock Importer works a bit different, there we hardcode actual (new name IST) and scheduled (new name Geplant) in the code, because we do not have them dynamic.
+
+The approach should be the same. The sources import with the name and then they are validated and replaced in the  main code.AbortController
+Please output the full files that require changes. 
+
+Thanks!
+
+
+Here are the rest of the project files:
+
+
+===============================
+Project Name: 'jobdone-metric-importer'
+File Path: 'src/index.ts'
+File Content:
+```ts
+import { appEnvironment, getAppConfig } from "./config";
+import { CronJob } from "cron";
+import logger from "./helper/logger";
+import dayjs from "./helper/customDayJs";
+import type {
+  CostCentersByOrganizationIdQuery,
+  MetricTypesByOrganizationIdQuery,
+  SaveMetricDetailsInput,
+} from "./graphql/generated/graphql";
+import { sendMessageToDiscord } from "./helper/discord";
+import { importFromCsv } from "./sources/csv";
+import { importFromSnowflake } from "./sources/snowflake";
+import {
+  getCostCenters,
+  getMetricTypes,
+  refreshAuthTokenBearerToken,
+  UpsertMetrics,
+} from "./util";
+import { importFromClock } from "./sources/clock";
+import type { SourceConfigType } from "./config";
+
+export interface MetricImport {
+  timestampCompatibleWithGranularity: string;
+  costCenter: string;
+  metricType: string;
+  value: string;
+  targetField: string;
+}
+
+const validateMetricsForSource = async (
+  metricsToImport: MetricImport[],
+  sourceConfig: SourceConfigType,
+  existingCostCenters: CostCentersByOrganizationIdQuery,
+  existingMetricTypes: MetricTypesByOrganizationIdQuery
+) => {
+  // Apply metric type mappings
+  const renamedExistingMetricTypes = existingMetricTypes.metricType.map((c) => {
+    const metricTypeMapping = sourceConfig.metricTypeMappings.find(
+      (m) => m.importName === c.name
+    );
+
+    if (metricTypeMapping) {
+      return {
+        ...c,
+        name: metricTypeMapping.jobdoneName,
+      };
+    }
+    return c;
+  });
+
+  const existingCostCenterIdsByNameMap: Map<string, string> = new Map();
+  const existingMetricTypesIdsByNameMap: Map<string, string> = new Map();
+  const metricTypeMappingsByNameMap = new Map();
+
+  existingCostCenters.costCenter.forEach((c) => {
+    existingCostCenterIdsByNameMap.set(c.name, c.id);
+  });
+  renamedExistingMetricTypes.forEach((m) => {
+    existingMetricTypesIdsByNameMap.set(m.name, m.id);
+  });
+  sourceConfig.metricTypeMappings.forEach((m) => {
+    metricTypeMappingsByNameMap.set(m.importName, m.jobdoneName);
+  });
+
+  const costCenterNamesToImport = new Set(
+    metricsToImport.map((m) => m.costCenter)
+  );
+  const metricTypeNamesToImport = new Set(
+    metricsToImport.map((m) => m.metricType)
+  );
+
+  // Check by name excluding ignored cost centers
+  const notExistingCostCenterNames = Array.from(costCenterNamesToImport)
+    .filter((c) => !existingCostCenters.costCenter.some((cc) => cc.name === c))
+    .filter((c) => !sourceConfig.ignoredMissingCostCenters.includes(c));
+
+  const notExistingMetricTypeNames = Array.from(metricTypeNamesToImport).filter(
+    (m) => !existingMetricTypes.metricType.some((mt) => mt.name === m)
+  );
+
+  if (notExistingCostCenterNames.length > 0) {
+    const message = `[${
+      sourceConfig.name
+    }] Cost center names not found in JobDone: ${notExistingCostCenterNames.join(
+      ", "
+    )}`;
+    logger.error(message);
+    await sendMessageToDiscord({ message });
+  }
+
+  if (notExistingMetricTypeNames.length > 0) {
+    const message = `[${
+      sourceConfig.name
+    }] Metric type names not found in JobDone: ${notExistingMetricTypeNames.join(
+      ", "
+    )}`;
+    logger.error(message);
+    await sendMessageToDiscord({ message });
+  }
+
+  const mergeMetricTypeName = sourceConfig.mergeMetricTypes.name;
+  if (
+    sourceConfig.mergeMetricTypes.enabled &&
+    !existingMetricTypes.metricType.some(
+      (mt) => mt.name === mergeMetricTypeName
+    )
+  ) {
+    const message = `[${sourceConfig.name}] Merge Metric type is enabled but does not exist in JobDone: ${mergeMetricTypeName}`;
+    logger.error(message);
+    throw new Error(message);
+  }
+
+  return {
+    existingCostCenterIdsByNameMap,
+    existingMetricTypesIdsByNameMap,
+    metricTypeMappingsByNameMap,
+  };
+};
+
+const formatMetricsForImport = (
+  sourceMetrics: MetricImport[],
+  sourceConfig: SourceConfigType,
+  existingCostCenterIdsByNameMap: Map<string, string>,
+  existingMetricTypesIdsByNameMap: Map<string, string>,
+  timeZone: string
+): SaveMetricDetailsInput[] => {
+  const formattedMetrics: SaveMetricDetailsInput[] = [];
+  const metricsUnableToImport: {
+    MetricImport: MetricImport;
+    Reason: string;
+  }[] = [];
+
+  sourceMetrics.forEach((m) => {
+    const costCenterId = existingCostCenterIdsByNameMap.get(m.costCenter);
+    const metricTypeId = sourceConfig.mergeMetricTypes.enabled
+      ? existingMetricTypesIdsByNameMap.get(sourceConfig.mergeMetricTypes.name)
+      : existingMetricTypesIdsByNameMap.get(m.metricType);
+
+    if (!costCenterId) {
+      if (!sourceConfig.ignoredMissingCostCenters.includes(m.costCenter)) {
+        logger.error(
+          `[${sourceConfig.name}] Cost center does not exist: ${m.costCenter}`
+        );
+        metricsUnableToImport.push({
+          MetricImport: m,
+          Reason: `Cost center does not exist: ${m.costCenter}`,
+        });
+      }
+      return;
+    }
+
+    if (!metricTypeId) {
+      if (sourceConfig.mergeMetricTypes.enabled) {
+        logger.error(
+          `[${sourceConfig.name}] Merge Metric type does not exist: ${sourceConfig.mergeMetricTypes.name}`
+        );
+        metricsUnableToImport.push({
+          MetricImport: m,
+          Reason: `Merge Metric type does not exist: ${sourceConfig.mergeMetricTypes.name}`,
+        });
+      } else {
+        logger.error(
+          `[${sourceConfig.name}] Metric type does not exist: ${m.metricType}`
+        );
+        metricsUnableToImport.push({
+          MetricImport: m,
+          Reason: `Metric type does not exist: ${m.metricType}`,
+        });
+      }
+      return;
+    }
+
+    formattedMetrics.push({
+      costCenterId,
+      metricTypeId,
+      field: m.targetField,
+      description: null,
+      timeZone,
+      timestamp: m.timestampCompatibleWithGranularity,
+      value: parseFloat(parseFloat(m.value).toFixed(2)),
+    });
+  });
+
+  if (metricsUnableToImport.length > 0) {
+    logger.info(
+      `[${sourceConfig.name}] Metrics unable to import:`,
+      JSON.stringify(metricsUnableToImport, null, 2)
+    );
+    console.table(metricsUnableToImport);
+  }
+
+  return formattedMetrics;
+};
+
+const mergeMetrics = (
+  metrics: SaveMetricDetailsInput[]
+): SaveMetricDetailsInput[] => {
+  const mergedMetrics = new Map<string, SaveMetricDetailsInput>();
+
+  metrics.forEach((metric) => {
+    const key = `${metric.timestamp}-${metric.costCenterId}-${metric.metricTypeId}`;
+    if (!mergedMetrics.has(key)) {
+      mergedMetrics.set(key, { ...metric, value: 0 });
+    }
+
+    const existingMetric = mergedMetrics.get(key);
+    if (existingMetric) {
+      // Ensure we're working with numbers
+      const currentValue = existingMetric.value || 0;
+      const newValue = metric.value || 0;
+
+      existingMetric.value = parseFloat((currentValue + newValue).toFixed(2));
+    }
+  });
+
+  return Array.from(mergedMetrics.values());
+};
+
+const start = async () => {
+  logger.info(`Starting Metric Importer at ${dayjs().format()}`);
+
+  await refreshAuthTokenBearerToken();
+
+  const appConfig = getAppConfig();
+
+  logger.info(
+    `Importing metrics for ${appEnvironment.organization.name} (${appEnvironment.organization.id})...`
+  );
+
+  const existingCostCenters = await getCostCenters({
+    organizationId: appEnvironment.organization.id,
+  });
+
+  const existingMetricTypes = await getMetricTypes({
+    organizationId: appEnvironment.organization.id,
+  });
+
+  let allFormattedMetricsToImport: SaveMetricDetailsInput[] = [];
+
+  // Process each enabled source
+  for (const source of appConfig.sources) {
+    if (!source.enabled) {
+      logger.info(`Skipping disabled source: ${source.name}`);
+      continue;
+    }
+
+    logger.info(`Processing source: ${source.name} (${source.type})`);
+
+    try {
+      let sourceMetrics: MetricImport[] = [];
+
+      switch (source.type) {
+        case "csv":
+          sourceMetrics = await importFromCsv(source);
+          break;
+
+        case "snowflake":
+          sourceMetrics = await importFromSnowflake(source, appConfig.timeZone);
+          break;
+
+        case "clock":
+          sourceMetrics = await importFromClock(source, appConfig.timeZone);
+          break;
+
+        default: {
+          // Type narrowing to ensure we have the source name
+          const unknownSource = source as { name?: string; type: string };
+          const sourceName = unknownSource.name || "Unknown source";
+          const sourceType = unknownSource.type || "Unknown type";
+
+          const message = `Unknown source type: ${sourceType} for ${sourceName}, skipping...`;
+          logger.error(message);
+          await sendMessageToDiscord({ message });
+          continue;
+        }
+      }
+
+      logger.info(
+        `Retrieved ${sourceMetrics.length} metrics from ${source.name}`
+      );
+
+      // Validate and transform metrics for this source
+      const {
+        existingCostCenterIdsByNameMap,
+        existingMetricTypesIdsByNameMap,
+        metricTypeMappingsByNameMap,
+      } = await validateMetricsForSource(
+        sourceMetrics,
+        source,
+        existingCostCenters,
+        existingMetricTypes
+      );
+
+      // Format metrics for this source
+      const formattedMetrics = formatMetricsForImport(
+        sourceMetrics,
+        source,
+        existingCostCenterIdsByNameMap,
+        existingMetricTypesIdsByNameMap,
+        appConfig.timeZone
+      );
+
+      // Merge metrics if enabled for this source
+      const mergedMetrics = source.mergeMetricTypes.enabled
+        ? mergeMetrics(formattedMetrics)
+        : formattedMetrics;
+
+      allFormattedMetricsToImport = [
+        ...allFormattedMetricsToImport,
+        ...mergedMetrics,
+      ];
+    } catch (error) {
+      const message = `Error processing source ${source.name}: ${
+        error instanceof Error ? error.message : "Unknown error"
+      }`;
+      logger.error(message);
+      await sendMessageToDiscord({ message });
+      // Continue with other sources even if one fails
+      continue;
+    }
+  }
+
+  // Sort all metrics by timestamp
+  allFormattedMetricsToImport.sort((a, b) => {
+    return dayjs(a.timestamp).isAfter(dayjs(b.timestamp)) ? 1 : -1;
+  });
+
+  logger.info(`Total metrics to import: ${allFormattedMetricsToImport.length}`);
+  console.table(allFormattedMetricsToImport);
+
+  if (appEnvironment.isDryRun) {
+    logger.info("Dry run enabled, not saving metrics...");
+    return;
+  }
+
+  // Save in batches of 100
+  const batchSize = 100;
+  for (let i = 0; i < allFormattedMetricsToImport.length; i += batchSize) {
+    logger.info(`Saving metrics: ${i} to ${i + batchSize}`);
+    const batch = allFormattedMetricsToImport.slice(i, i + batchSize);
+    await UpsertMetrics({
+      input: {
+        details: batch,
+      },
+    });
+  }
+};
+
+logger.info(`Cron time: ${appEnvironment.cronTime}`);
+
+CronJob.from({
+  cronTime: appEnvironment.cronTime,
+  onTick: async () => {
+    try {
+      await start();
+    } catch (e) {
+      console.log(e);
+      logger.error(
+        `Metric Importer crashed, Error: ${JSON.stringify(e, null, 2)}`
+      );
+    }
+  },
+  start: true,
+  timeZone: "Europe/Zurich",
+  runOnInit: true,
+});
+
+/**
+ * Gracefully handle SIGINT
+ */
+process.on("SIGINT", async () => {
+  logger.warn("Importer aborted...");
+  process.exit();
+});
+
+```
+===============================
+
+
+===============================
+Project Name: 'jobdone-metric-importer'
+File Path: 'src/config.ts'
+File Content:
+```ts
+import { appConfigBindella } from "./configs/bindella";
+import { appConfigFWG } from "./configs/fwg";
+import { appConfigHotelMonopol } from "./configs/hotel-monopol";
+
+export function getEnvVar(name: string, isOptional = false): string {
+  const value = process.env[name];
+  if (!value && !isOptional) {
+    throw new Error(`Environment variable ${name} is not defined`);
+  }
+
+  if (!value) {
+    return "";
+  }
+
+  return value;
+}
+
+export function getAppConfig() {
+  const configFile = getEnvVar("JOBDONE_ORGANIZATION_NAME", true);
+  switch (configFile) {
+    case "Bindella":
+      return appConfigBindella;
+    case "FWG":
+      return appConfigFWG;
+    case "Hotel Monopol":
+      return appConfigHotelMonopol;
+    default:
+      throw new Error(`Unknown config file: ${configFile}`);
+  }
+}
+
+export const appEnvironment = {
+  isDryRun: getEnvVar("IS_DRY_RUN") === "false" ? false : true,
+  cronTime: getEnvVar("CRON_TIME"),
+  organization: {
+    id: getEnvVar("JOBDONE_ORGANIZATION_ID"),
+    name: getEnvVar("JOBDONE_ORGANIZATION_NAME"),
+  },
+  organizationUser: {
+    id: getEnvVar("JOBDONE_ORGANIZATION_USER_ID"),
+  },
+  auth: {
+    username: getEnvVar("JOBDONE_USERNAME"),
+    password: getEnvVar("JOBDONE_PASSWORD"),
+    authRegion: getEnvVar("JOBDONE_AUTH_REGION"),
+    userPoolId: getEnvVar("JOBDONE_USER_POOL_ID"),
+    userPoolWebClientId: getEnvVar("JOBDONE_USER_POOL_WEB_CLIENT_ID"),
+    //   bearerToken: getEnvVar("JOBDONE_BEARER_TOKEN"),
+    //   accessKey: getEnvVar("JOBDONE_ACCESS_KEY"),
+    //   rawSecret: getEnvVar("JOBDONE_RAW_SECRET"),
+  },
+  graphql: {
+    endpoint: getEnvVar("JOBDONE_GRAPHQL_ENDPOINT"),
+    adminSecret: getEnvVar("JOBDONE_GRAPHQL_ADMIN_SECRET"),
+  },
+  client: {
+    id: getEnvVar("JOBDONE_CLIENT_ID"),
+    name: getEnvVar("JOBDONE_CLIENT_NAME"),
+  },
+  discord: {
+    webhookUrl: getEnvVar("DISCORD_WEBHOOK_URL"),
+  },
+} as const;
+
+export type SOURCE_TYPE = "csv" | "snowflake" | "clock";
+export interface TransformColumn {
+  outputColumn: string;
+  operation: "add" | "subtract";
+  operands: string[];
+}
+
+export interface MetricTypeMapping {
+  importName: string;
+  jobdoneName: string;
+}
+
+export interface MergeMetricTypesConfig {
+  enabled: boolean;
+  name: string;
+}
+
+export interface BaseSourceConfig {
+  name: string;
+  type: SOURCE_TYPE;
+  enabled: boolean;
+  ignoredMissingCostCenters: string[];
+  autoCreateMetricType: boolean;
+  mergeMetricTypes: MergeMetricTypesConfig;
+  metricTypeMappings: MetricTypeMapping[];
+  metricTypeCategory: string;
+}
+
+export interface CSVSourceConfig extends BaseSourceConfig {
+  type: "csv";
+  filePath: string;
+  importColumns: string[];
+  transformColumns: TransformColumn[];
+  dateFormat: string;
+}
+
+export interface SnowflakeSourceConfig extends BaseSourceConfig {
+  type: "snowflake";
+  account?: string | null;
+  username?: string | null;
+  password?: string | null;
+  database?: string | null;
+  schema?: string | null;
+  warehouse?: string | null;
+  role?: string | null;
+  daysPast: number;
+  daysFuture: number;
+  query: string;
+}
+
+export interface ClockSourceConfig extends BaseSourceConfig {
+  type: "clock";
+  costCenter: string | null;
+  metricType: string | null;
+  accountId: string | null;
+  subscriptionId: string | null;
+  subscriptionRegion: string | null;
+  baseApi: string | null;
+  apiUser: string | null;
+  apiKey: string | null;
+  isCacheEnabled: boolean;
+  isDoNotDeleteCacheEnabled: boolean;
+}
+
+export type SourceConfigType =
+  | CSVSourceConfig
+  | SnowflakeSourceConfig
+  | ClockSourceConfig;
+
+export interface AppConfig {
+  sources: SourceConfigType[];
+  diskFreeSpaceThresholdInPercent: number;
+  timeZone: string;
+}
+
+```
+===============================
+
+===============================
+Project Name: 'jobdone-metric-importer'
+File Path: 'src/util.ts'
+File Content:
+```ts
+import { appEnvironment } from "./config.ts";
+import logger from "./helper/logger";
+import { GraphQLClient } from "graphql-request";
+import {
+  CostCentersByOrganizationId,
+  type CostCentersByOrganizationIdQuery,
+  MetricTypesByOrganizationId,
+  SaveMetrics,
+  type SaveMetricsMutation,
+  type SaveMetricsMutationVariables,
+  type CostCentersByOrganizationIdQueryVariables,
+  type MetricTypesByOrganizationIdQueryVariables,
+  type MetricTypesByOrganizationIdQuery,
+} from "./graphql/generated/graphql.ts";
+import {
+  type AuthTokens,
+  authenticate,
+  refreshBearerToken,
+} from "./helper/cognito.ts";
+
+let authTokens: AuthTokens;
+
+authTokens = await authenticate();
+logger.info(`Authenticated with Jobdone API: ${authTokens.idToken}`);
+
+if (!authTokens.idToken) {
+  throw new Error("Failed to authenticate with Jobdone API");
+}
+
+export const refreshAuthTokenBearerToken = async () => {
+  if (authTokens.refreshToken) {
+    const response = await refreshBearerToken(authTokens.refreshToken);
+    authTokens.idToken = response.idToken;
+    authTokens.accessToken = response.accessToken;
+    logger.info(`Refreshed bearer token: ${authTokens.idToken}`);
+    
+    if (authTokens.idToken) {
+      externalGraphqlClient.setHeader("authorization", authTokens.idToken);
+      logger.info(`Updated bearer token in externalGraphqlClient: ${authTokens.idToken}`);
+    } else {
+      logger.error("Unable to refresh bearer token, no idToken found.");
+    }
+  } else {
+    logger.error("No refresh token found.")
+  }
+};
+
+export const internalGraphqlClient = new GraphQLClient(
+  appEnvironment.graphql.endpoint,
+  {
+    headers: {
+      "x-hasura-admin-secret": appEnvironment.graphql.adminSecret,
+      organization: appEnvironment.organization.id,
+    },
+  }
+);
+
+export const externalGraphqlClient = new GraphQLClient(
+  appEnvironment.graphql.endpoint,
+  {
+    headers: {
+      authorization: authTokens.idToken,
+      organization: appEnvironment.organization.id,
+    },
+  }
+);
+
+export const getCostCenters = async (
+  variables: CostCentersByOrganizationIdQueryVariables
+): Promise<CostCentersByOrganizationIdQuery> => {
+  const result: CostCentersByOrganizationIdQuery =
+    await internalGraphqlClient.request(CostCentersByOrganizationId, variables);
+
+  logger.info(`Cost centers: ${JSON.stringify(result, null, 2)}`);
+  return result;
+};
+
+export const getMetricTypes = async (
+  variables: MetricTypesByOrganizationIdQueryVariables
+): Promise<MetricTypesByOrganizationIdQuery> => {
+  const result: MetricTypesByOrganizationIdQuery =
+    await internalGraphqlClient.request(MetricTypesByOrganizationId, variables);
+
+  logger.info(`Metric types: ${JSON.stringify(result, null, 2)}`);
+  return result;
+};
+
+export const UpsertMetrics = async (
+  variables: SaveMetricsMutationVariables
+): Promise<SaveMetricsMutation> => {
+  logger.info(`Saving metrics: ${variables.input?.details.length}`);
+
+  const result = await externalGraphqlClient.request<
+    SaveMetricsMutation,
+    SaveMetricsMutationVariables
+  >(SaveMetrics, variables);
+
+  logger.info(`Saved metrics.`);
+
+  return result;
+};
+
+```
+===============================
+
+Hre are the sources:
+
+
+===============================
+Project Name: 'jobdone-metric-importer'
+Directory Path: 'src/sources'
+===============================
+
+===============================
+Project Name: 'jobdone-metric-importer'
+File Path: 'src/sources/clock.ts'
+File Content:
+```ts
+import type { MetricImport } from "../index";
+import logger from "../helper/logger";
+import dayjs from "../helper/customDayJs";
+import DigestFetch from "digest-fetch";
+import { appEnvironment, type ClockSourceConfig } from "../config";
+import fs from "fs/promises";
+import path from "path";
+
+interface ClockState {
+  lastUpdatedAt?: string;
+}
+
+const clockStateFilePath = path.resolve(process.cwd(), "clock-state.json");
+
+// Helper function to read the clock state
+const readClockState = async (): Promise<ClockState> => {
+  try {
+    const data = await fs.readFile(clockStateFilePath, "utf-8");
+    return JSON.parse(data) as ClockState;
+  } catch (error: any) {
+    logger.warn(`Unable to read clock-state.json: ${error.message}`);
+    return {};
+  }
+};
+
+// Helper function to write the clock state
+const writeClockState = async (lastUpdatedAt: string) => {
+  const clockState: ClockState = { lastUpdatedAt };
+  try {
+    await fs.writeFile(clockStateFilePath, JSON.stringify(clockState, null, 2));
+    logger.info(
+      `Updated lastUpdatedAt in clock-state.json to ${lastUpdatedAt}`
+    );
+  } catch (error: any) {
+    logger.error(`Error writing to clock-state.json: ${error.message}`);
+  }
+};
+
+export const importFromClock = async (
+  config: ClockSourceConfig,
+  timeZone: string,
+): Promise<MetricImport[]> => {
+  logger.info(`[${config.name}] Fetching data from Clock API...`);
+
+  const metricsToImport: MetricImport[] = [];
+
+  if (!config.apiUser || !config.apiKey) {
+    throw new Error(`[${config.name}] API user or API key not configured`);
+  }
+
+  // Set up digest authentication
+  const client = new DigestFetch(config.apiUser, config.apiKey);
+
+  // Read lastUpdatedAt from clock-state.json
+  const clockState = await readClockState();
+  const lastUpdatedAt = clockState.lastUpdatedAt;
+
+  const api = `https://${config.subscriptionRegion}.clock-software.com/${config.baseApi}/${config.subscriptionId}/${config.accountId}`;
+  const bookingsApi = `${api}/bookings`;
+
+  // Define the cache directory path
+  const cacheDir = path.resolve(process.cwd(), "cache");
+
+  // Create the cache directory if it doesn't exist
+  if (config.isCacheEnabled) {
+    try {
+      await fs.mkdir(cacheDir, { recursive: true });
+      logger.info(`[${config.name}] Cache directory ensured at ${cacheDir}`);
+    } catch (error: any) {
+      logger.error(
+        `[${config.name}] Error creating cache directory: ${error.message}`
+      );
+    }
+  }
+
+  try {
+    // Conditionally construct the URL
+    let newBookingsUrl = bookingsApi;
+
+    if (lastUpdatedAt) {
+      newBookingsUrl += `?updated_at.gteq=${encodeURIComponent(lastUpdatedAt)}`;
+      logger.info(
+        `[${config.name}] Fetching updated bookings from ${newBookingsUrl}`
+      );
+    } else {
+      logger.info(
+        `[${config.name}] Fetching all bookings (no updated_at filter applied) from ${newBookingsUrl}`
+      );
+    }
+
+    // Fetch the list of booking IDs
+    const response = await client.fetch(newBookingsUrl, { method: "GET" });
+    if (!response.ok) {
+      throw new Error(`Error fetching booking list: ${response.statusText}`);
+    }
+
+    let bookingIds: number[] = await response.json();
+
+    // if (appEnvironment.isDryRun) {
+    //   bookingIds = bookingIds.slice(0, 5);
+    // }
+    logger.info(`[${config.name}] Found ${bookingIds.length} bookings`);
+    logger.debug(`[${config.name}] Booking IDs: ${bookingIds.join(", ")}`);
+
+    // Process each booking ID
+    for (const bookingId of bookingIds) {
+      let booking: any;
+      const cacheFilePath = path.join(cacheDir, `booking_${bookingId}.json`);
+
+      if (config.isCacheEnabled) {
+        try {
+          const cachedData = await fs.readFile(cacheFilePath, "utf-8");
+          booking = JSON.parse(cachedData);
+          logger.info(
+            `[${config.name}] Loaded booking ${bookingId} from cache`
+          );
+        } catch (error) {
+          // Cache miss or error reading cache, proceed to fetch from API
+          logger.info(
+            `[${config.name}] Cache miss for booking ${bookingId}, fetching from API`
+          );
+
+          const bookingUrl = `${bookingsApi}/${bookingId}`;
+          logger.info(
+            `[${config.name}] Fetching booking details from ${bookingUrl}`
+          );
+
+          const bookingResponse = await client.fetch(bookingUrl, {
+            method: "GET",
+          });
+
+          if (!bookingResponse.ok) {
+            throw new Error(
+              `Error fetching booking details: ${bookingResponse.statusText}`
+            );
+          }
+
+          booking = await bookingResponse.json();
+
+          // Save the booking data to cache
+          await fs.writeFile(cacheFilePath, JSON.stringify(booking, null, 2));
+          logger.info(`[${config.name}] Cached booking ${bookingId} data`);
+        }
+      } else {
+        const bookingUrl = `${bookingsApi}/${bookingId}`;
+        logger.info(
+          `[${config.name}] Fetching booking details from ${bookingUrl}`
+        );
+
+        const bookingResponse = await client.fetch(bookingUrl, {
+          method: "GET",
+        });
+
+        if (!bookingResponse.ok) {
+          throw new Error(
+            `Error fetching booking details: ${bookingResponse.statusText}`
+          );
+        }
+
+        booking = await bookingResponse.json();
+      }
+
+      logger.debug(
+        `[${config.name}] Processing booking ${bookingId}: ${JSON.stringify(
+          booking,
+          null,
+          2
+        )}`
+      );
+
+      /**
+       * Status: The Booking status can be: 'expected', 'checked_in', 'checked_out', 'canceled' or 'no_show'.
+       * Bookings having the last two statuses ('canceled' or 'no_show') are considered not to be valid bookings.
+       * Such bookings are not taken into availability.
+       * The status is fully reversible and can be changed at any time (examples: from 'cancelled' to 'expected'; from 'checked_out' to 'checked_in', etc.)
+       *
+       * arrival: 2024-01-01
+       * departure: 2024-01-08
+       */
+
+      /**
+       * metricType: actual = 'checked_in', 'checked_out',
+       * metricType: scheduled = 'expected'
+       */
+
+      // Calculate stay duration
+      const arrivalDate = dayjs(booking.arrival);
+      const departureDate = dayjs(booking.departure);
+      const stayDuration = departureDate.diff(arrivalDate, "day");
+
+      if (!config.metricType) {
+        throw new Error(`[${config.name}] Metric type not configured`);
+      }
+
+      // Determine the targetField based on the booking status
+      let targetField: string;
+      if (booking.status === "checked_in" || booking.status === "checked_out") {
+        targetField = "actual";
+      } else if (booking.status === "expected") {
+        targetField = "scheduled";
+      } else {
+        continue; // Skip invalid statuses like 'canceled' or 'no_show'
+      }
+
+      if (!config.costCenter) {
+        throw new Error(`[${config.name}] Cost center not configured`);
+      }
+
+      // Apply metric type mapping if configured
+      const metricTypeMapping = config.metricTypeMappings.find(
+        (m) => m.importName === config.metricType
+      );
+      const finalMetricType = metricTypeMapping
+        ? metricTypeMapping.jobdoneName
+        : config.metricType;
+
+      // Loop through each day of the stay and create a metric
+      for (let i = 0; i < stayDuration; i++) {
+        const currentDate = arrivalDate
+          .add(i, "day")
+          .tz(timeZone)
+          .utc()
+          .toISOString();
+
+        // Check if metricsToImport already has a metric for this day
+        let existingMetric = metricsToImport.find(
+          (metric) =>
+            metric.timestampCompatibleWithGranularity === currentDate &&
+            metric.costCenter === config.costCenter &&
+            metric.targetField === targetField
+        );
+
+        if (existingMetric) {
+          logger.debug(
+            `[${config.name}] Incrementing existing metric for ${currentDate}`
+          );
+          existingMetric.value = (
+            parseInt(existingMetric.value) + 1
+          ).toString();
+        } else {
+          const metric: MetricImport = {
+            timestampCompatibleWithGranularity: currentDate,
+            costCenter: config.costCenter,
+            metricType: finalMetricType,
+            value: "1",
+            targetField: targetField,
+          };
+          metricsToImport.push(metric);
+        }
+      }
+    }
+
+    // Update the lastUpdatedAt timestamp
+    if (!appEnvironment.isDryRun) {
+      const newLastUpdatedAt = dayjs().toISOString();
+      await writeClockState(newLastUpdatedAt);
+    }
+
+    // Clear cache if enabled and not explicitly preserved
+    if (config.isCacheEnabled && !config.isDoNotDeleteCacheEnabled) {
+      try {
+        const files = await fs.readdir(cacheDir);
+        for (const file of files) {
+          const filePath = path.join(cacheDir, file);
+          await fs.unlink(filePath);
+        }
+        logger.info(`[${config.name}] Cache cleared from ${cacheDir}`);
+      } catch (error: any) {
+        logger.error(
+          `[${config.name}] Error clearing cache directory: ${error.message}`
+        );
+      }
+    }
+
+    logger.info(
+      `[${config.name}] Successfully imported ${metricsToImport.length} metrics`
+    );
+    return metricsToImport;
+  } catch (error: any) {
+    logger.error(
+      `[${config.name}] Error fetching data from Clock API: ${error.message}`
+    );
+    throw error;
+  }
+};
+
+```
+===============================
+
+===============================
+Project Name: 'jobdone-metric-importer'
+File Path: 'src/sources/csv.ts'
+File Content:
+```ts
+import { type CSVSourceConfig, type TransformColumn } from "../config";
+import { parse } from "csv-parse/sync";
+import fs from "fs";
+import type { MetricImport } from "..";
+import dayjs from "dayjs";
+import logger from "../helper/logger";
+
+export interface MetricCSVImport {
+  date: string;
+  costCenter: string;
+  metricType: string;
+  value: string;
+}
+
+const applyTransformations = (
+  data: any[],
+  transformations: TransformColumn[],
+  sourceName: string
+) => {
+  return data.map((row) => {
+    logger.debug(`[${sourceName}] Raw row: ${JSON.stringify(row, null, 2)}`);
+
+    transformations.forEach(({ outputColumn, operation, operands }) => {
+      if (!operands.every((operand) => row[operand] !== undefined)) {
+        logger.warn(
+          `[${sourceName}] Skipping transformation for row due to missing operands: ${JSON.stringify(
+            row,
+            null,
+            2
+          )}`
+        );
+        return row;
+      }
+
+      if (operation === "add") {
+        row[outputColumn] = operands
+          .reduce((sum, operand) => sum + parseFloat(row[operand] || "0"), 0)
+          .toFixed(2);
+      } else if (operation === "subtract") {
+        row[outputColumn] = operands
+          .reduce(
+            (result, operand, index) =>
+              index === 0
+                ? parseFloat(row[operand] || "0")
+                : result - parseFloat(row[operand] || "0"),
+            0
+          )
+          .toFixed(2);
+      }
+    });
+
+    logger.debug(
+      `[${sourceName}] Transformed row: ${JSON.stringify(row, null, 2)}`
+    );
+    return row;
+  });
+};
+
+const parseCsv = async (
+  config: CSVSourceConfig
+): Promise<MetricCSVImport[]> => {
+  try {
+    // Check if file exists
+    if (!fs.existsSync(config.filePath)) {
+      throw new Error(`CSV file not found: ${config.filePath}`);
+    }
+
+    // Read and parse CSV file
+    const csv = fs.readFileSync(config.filePath, "utf8");
+    let parsedCsv = parse(csv, {
+      columns: [...config.importColumns],
+      skip_empty_lines: true,
+      trim: true,
+    });
+
+    // Apply transformations if configured
+    if (config.transformColumns && config.transformColumns.length > 0) {
+      logger.info(
+        `[${config.name}] Applying ${config.transformColumns.length} transformations to CSV data`
+      );
+      parsedCsv = applyTransformations(
+        parsedCsv,
+        config.transformColumns,
+        config.name
+      );
+    }
+
+    if (!parsedCsv || !parsedCsv.length) {
+      logger.warn(`[${config.name}] No data found in CSV file`);
+      return [];
+    }
+
+    // Map to expected format
+    return parsedCsv.map((row: any) => ({
+      date: row.date,
+      costCenter: row.costCenter,
+      metricType: row.metricType,
+      value: row.value,
+    }));
+  } catch (error) {
+    logger.error(`[${config.name}] Error parsing CSV: ${error.message}`);
+    throw error;
+  }
+};
+
+export const importFromCsv = async (
+  config: CSVSourceConfig
+): Promise<MetricImport[]> => {
+  // Validate configuration
+  if (!config.filePath) {
+    throw new Error(`[${config.name}] Source file path is not set`);
+  }
+  if (!config.importColumns?.length) {
+    throw new Error(`[${config.name}] Import columns are not configured`);
+  }
+  if (!config.dateFormat) {
+    throw new Error(`[${config.name}] Date format is not configured`);
+  }
+  if (!config.metricTypeCategory) {
+    logger.warn(
+      `[${config.name}] Target field not specified, defaulting to "actual"`
+    );
+  }
+
+  logger.info(`[${config.name}] Importing CSV from ${config.filePath}`);
+
+  const metricsToImport: MetricCSVImport[] = await parseCsv(config);
+
+  logger.info(
+    `[${config.name}] Found ${metricsToImport.length} records in CSV`
+  );
+
+  // Map to final format and apply metric type mappings
+  const mappedMetricsToImport: MetricImport[] = metricsToImport.map((m) => {
+    // Check if there's a mapping for this metric type
+    const metricTypeMapping = config.metricTypeMappings.find(
+      (mapping) => mapping.importName === m.metricType
+    );
+
+    return {
+      timestampCompatibleWithGranularity: dayjs
+        .tz(m.date, config.dateFormat)
+        .utc()
+        .toISOString(),
+      costCenter: m.costCenter,
+      // Use mapped name if exists, otherwise use original
+      metricType: metricTypeMapping
+        ? metricTypeMapping.jobdoneName
+        : m.metricType,
+      value: m.value,
+      targetField: config.metricTypeCategory || "actual",
+    };
+  });
+
+  logger.info(
+    `[${config.name}] Successfully processed ${mappedMetricsToImport.length} metrics`
+  );
+
+  return mappedMetricsToImport;
+};
+
+```
+===============================
+
+===============================
+Project Name: 'jobdone-metric-importer'
+File Path: 'src/sources/snowflake.ts'
+File Content:
+```ts
+import snowflake from "snowflake-sdk";
+import dayjs from "dayjs";
+import type { MetricImport } from "..";
+import logger from "../helper/logger";
+import type { SnowflakeSourceConfig } from "../config";
+
+export const createSnowflakeConnection = (config: SnowflakeSourceConfig) => {
+  return snowflake.createConnection({
+    account: config.account || "",
+    username: config.username || "",
+    password: config.password || "",
+    database: config.database || "",
+    schema: config.schema || "",
+    warehouse: config.warehouse || "",
+    role: config.role || "",
+  });
+};
+
+export const importFromSnowflake = async (
+  config: SnowflakeSourceConfig,
+  timeZone: string
+): Promise<MetricImport[]> => {
+  const connection = createSnowflakeConnection(config);
+
+  await new Promise((resolve, reject) =>
+    connection.connect((err, conn) => {
+      if (err) {
+        logger.error(`[${config.name}] Unable to connect: ${err.message}`);
+        reject(err);
+      } else {
+        logger.info(`[${config.name}] Successfully connected to Snowflake.`);
+        resolve(conn);
+      }
+    })
+  );
+
+  const fromDate = dayjs()
+    .subtract(config.daysPast, "day")
+    .tz(timeZone)
+    .startOf("day")
+    .format("YYYY-MM-DD HH:mm:ss");
+
+  const toDate = dayjs()
+    .add(config.daysFuture, "day")
+    .tz(timeZone)
+    .endOf("day")
+    .format("YYYY-MM-DD HH:mm:ss");
+
+  logger.info(
+    `[${config.name}] Querying Snowflake from ${fromDate} to ${toDate}`
+  );
+
+  return new Promise((resolve, reject) => {
+    connection.execute({
+      sqlText: config.query,
+      binds: [fromDate, toDate],
+      complete: (err, stmt, rows) => {
+        if (err) {
+          logger.error(
+            `[${config.name}] Failed to execute query: ${err.message}`
+          );
+          reject(err);
+        } else {
+          if (rows) {
+            // Apply metric type mappings if configured
+            const mappedMetrics: MetricImport[] = rows.map((row) => {
+              // Check if there's a mapping for this metric type
+              const metricTypeMapping = config.metricTypeMappings.find(
+                (m) => m.importName === row.metricType
+              );
+
+              return {
+                timestampCompatibleWithGranularity: dayjs
+                  .tz(row.timestamp, "YYYY-MM-DD", timeZone)
+                  .utc()
+                  .toISOString(),
+                costCenter: row.costCenter,
+                // Use mapped name if exists, otherwise use original
+                metricType: metricTypeMapping
+                  ? metricTypeMapping.jobdoneName
+                  : row.metricType,
+                value: row.value.toString(),
+                targetField: config.metricTypeCategory || "actual",
+              };
+            });
+
+            logger.info(
+              `[${config.name}] Successfully retrieved ${mappedMetrics.length} metrics from Snowflake`
+            );
+            resolve(mappedMetrics);
+          } else {
+            logger.warn(`[${config.name}] No data returned from the query`);
+            resolve([]);
+          }
+        }
+
+        connection.destroy((destroyErr) => {
+          if (destroyErr) {
+            logger.error(
+              `[${config.name}] Failed to destroy connection: ${destroyErr.message}`
+            );
+          } else {
+            logger.info(`[${config.name}] Connection successfully destroyed.`);
+          }
+        });
+      },
+    });
+  });
+};
+
+```
+===============================

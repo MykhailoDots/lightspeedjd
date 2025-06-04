@@ -1,0 +1,20 @@
+Can you help me to create a new SMTP source?
+
+We can use the cron functionality and periodically check for new emails.
+We should be able to define a subject which we compare. For example, in our first implementation the title is: "Ihr Lightspeed Restaurant-Bericht"
+
+The emails have a csv file and within the csv file should be dynamically define which field we want to use that is the value / revenue.
+For example, in our file, we have column 3, row 2 (counting including header), maybe can have a setting if we should skip the header or not.
+
+We also need to extract the cost center from the report. Same approach, we specify where in the csv that is, in our case, column 1, row 2 (counting including the header)
+
+We should be able how many mails in the past we want to import.
+
+Also, we should be able to extract the date from the file name via regex.
+
+We should also check if there is an attachment.
+
+For example the file name is now "friedsolutiongmbh_friedsolutiongmbh_product_breakdown_20250409_20250410.csv"
+We would need to extract the 20250410.
+
+We have a simple smtp mail server with username and password (host, port etc default things)

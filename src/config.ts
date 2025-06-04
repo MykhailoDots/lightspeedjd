@@ -173,10 +173,8 @@ export interface TagiNetSourceConfig extends BaseSourceConfig {
   password: string;
   daysPast: number;
   daysFuture: number;
-  ageWeightThresholdMonths: number;
-  youngChildWeight: number;
-  olderChildWeight: number;
   costCenterMapping?: Record<string, string>;
+  unweightedCostCenters?: string[];
 }
 
 export interface EmailSourceConfig extends BaseSourceConfig {
