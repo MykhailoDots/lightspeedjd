@@ -24,7 +24,7 @@ export const appConfigSmallFoot: AppConfig = {
       password: getEnvVar("TAGINET_PASSWORD", true),
       daysPast: 7,
       daysFuture: 30,
-      unweightedCostCenters: [], // Add mandanten here that should not apply weights
+      unweightedCostCenters: ["301 Baar 1"],
       costCenterMapping: {
         Aarau: "202 Aarau",
         Andermatt: "401 Andermatt",

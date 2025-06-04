@@ -133,7 +133,7 @@ export const importFromTagiNet = async (
         if (adjustedDayJsWeekday === entryWeekday) {
           // Check if this cost center should use unweighted values
           const isUnweighted = source.unweightedCostCenters?.includes(
-            entry.mandant
+            costCenter
           );
 
           if (isUnweighted) {
