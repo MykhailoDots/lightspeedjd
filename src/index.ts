@@ -263,7 +263,7 @@ const formatMetricsForImport = (
       costCenterId,
       metricTypeId,
       metricTypeCategoryId,
-      description: null,
+      // description: null, // IMPORTANT: Removing entierly, to not overwrite existing descriptions from users!
       timeZone,
       timestamp: m.timestampCompatibleWithGranularity,
       value: parseFloat(parseFloat(m.value).toFixed(2)),
