@@ -35,6 +35,8 @@ export function getAppConfig() {
       return appConfigDamnDelicious;
     case "straeme":
       return appConfigDamnDelicious;
+    case "stadthof":
+      return appConfigDamnDelicious;
     case "small Foot":
       return appConfigSmallFoot;
     case "astro-fries":
