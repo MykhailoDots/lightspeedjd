@@ -1,14 +1,18 @@
 import snowflake from "snowflake-sdk";
 import dayjs from "dayjs";
+import fs from "node:fs";
 import type { MetricImport } from "..";
 import logger from "../helper/logger";
 import type { SnowflakeSourceConfig } from "../config";
 
 export const createSnowflakeConnection = (config: SnowflakeSourceConfig) => {
+  const privateKey = fs.readFileSync(process.env.SNOWFLAKE_PRIVATE_KEY_PATH!, "utf8"); // <- string
   return snowflake.createConnection({
     account: config.account || "",
     username: config.username || "",
-    password: config.password || "",
+    authenticator: "SNOWFLAKE_JWT",
+    privateKey,                    // string PEM
+    // privateKeyPass: undefined    // omit for unencrypted key
     database: config.database || "",
     schema: config.schema || "",
     warehouse: config.warehouse || "",

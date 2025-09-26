@@ -178,3 +178,4 @@ dist
 *.csv
 *.log
 cache
+*.secret

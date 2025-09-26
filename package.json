@@ -33,7 +33,7 @@
     "graphql-request": "^7.0.1",
     "imap": "^0.8.19",
     "mailparser": "^3.7.2",
-    "snowflake-sdk": "^1.11.0",
+    "snowflake-sdk": "^2.2.0",
     "winston": "^3.13.0"
   }
 }
