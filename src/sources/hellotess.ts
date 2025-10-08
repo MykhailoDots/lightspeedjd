@@ -271,17 +271,18 @@ export const importFromHelloTESS = async (
     const dateFrom = dayjs().subtract(source.daysPast, "day").startOf("day");
     const dateUntil = dayjs().add(source.daysFuture, "day").endOf("day");
 
+    // Buffer: fetch one extra day into the past to avoid partial-day boundary issues
+    const bufferedDateFrom = dayjs(dateFrom).subtract(1, "day");
+
     logger.info(
-      `[${
-        source.name
-      }] Fetching recent helloTESS invoices from ${dateFrom.format(
+      `[${source.name}] Fetching recent helloTESS invoices from ${bufferedDateFrom.format(
         "YYYY-MM-DD"
       )} to ${dateUntil.format("YYYY-MM-DD")}`
     );
 
     const recentInvoices = await fetchInvoices(
       source,
-      dateFrom.format("YYYY-MM-DD"),
+      bufferedDateFrom.format("YYYY-MM-DD"),
       dateUntil.format("YYYY-MM-DD")
     );
 
@@ -290,7 +291,24 @@ export const importFromHelloTESS = async (
     );
 
     // Process recent invoices
-    const recentMetrics = processInvoices(recentInvoices, source, timeZone);
+    const recentMetricsAll = processInvoices(recentInvoices, source, timeZone);
+
+    // Keep only metrics whose business day is within [dateFrom, dateUntil] inclusive.
+    // Use an exclusive upper bound at the start of (dateUntil + 1 day) in business TZ.
+    const lowerBoundISO = dayjs
+      .tz(dateFrom.format("YYYY-MM-DD"), timeZone) // 00:00 local on dateFrom
+      .utc()
+      .toISOString();
+
+    const upperBoundExclusiveISO = dayjs
+      .tz(dateUntil.add(1, "day").format("YYYY-MM-DD"), timeZone) // 00:00 local on the day after dateUntil
+      .utc()
+      .toISOString();
+
+    const recentMetrics = recentMetricsAll.filter((m) => {
+      const ts = m.timestampCompatibleWithGranularity; // ISO string at 00:00 local for that business day (in UTC)
+      return ts >= lowerBoundISO && ts < upperBoundExclusiveISO;
+    });
 
     // Combine historical and recent metrics, avoiding duplicates
     const seenKeys = new Set();
