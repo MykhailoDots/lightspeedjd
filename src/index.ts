@@ -10,6 +10,7 @@ import type {
 import { sendMessageToDiscord } from "./helper/discord";
 import { importFromCsv } from "./sources/csv";
 import { importFromSnowflake } from "./sources/snowflake";
+import { importFromMssql } from "./sources/mssql";
 import {
   getCostCenters,
   getMetricTypes,
@@ -341,6 +342,9 @@ const start = async () => {
           break;
         case "snowflake":
           sourceMetrics = await importFromSnowflake(source, appConfig.timeZone);
+          break;
+        case "mssql":
+          sourceMetrics = await importFromMssql(source, appConfig.timeZone);
           break;
         case "clock":
           sourceMetrics = await importFromClock(source, appConfig.timeZone);

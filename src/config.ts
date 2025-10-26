@@ -4,6 +4,7 @@ import { appConfigDamnDelicious } from "./configs/damn-delicious";
 import { appConfigHotelMonopol } from "./configs/hotel-monopol";
 import { appConfigSmallFoot } from "./configs/small-foot";
 import { appConfigAstroFries } from "./configs/astro-fries";
+import { appConfigRemimag } from "./configs/remimag";
 
 export function getEnvVar(name: string, isOptional = false): string {
   const value = process.env[name];
@@ -43,6 +44,9 @@ export function getAppConfig() {
       return appConfigSmallFoot;
     case "astro-fries":
       return appConfigAstroFries;
+    case "Remimag":
+    case "remimag":
+      return appConfigRemimag;
     default:
       throw new Error(`Unknown config file: ${configFile}`);
   }
@@ -81,6 +85,7 @@ export const appEnvironment = {
 export type SOURCE_TYPE =
   | "csv"
   | "snowflake"
+  | "mssql"
   | "clock"
   | "hellotess"
   | "taginet"
@@ -134,6 +139,22 @@ export interface SnowflakeSourceConfig extends BaseSourceConfig {
   schema?: string | null;
   warehouse?: string | null;
   role?: string | null;
+  daysPast: number;
+  daysFuture: number;
+  query: string;
+}
+
+export interface MssqlSourceConfig extends BaseSourceConfig {
+  type: "mssql";
+  server: string;
+  port?: number;
+  database: string;
+  username: string;
+  password: string;
+  encrypt?: boolean;
+  trustServerCertificate?: boolean;
+  connectionTimeoutMs?: number;
+  requestTimeoutMs?: number;
   daysPast: number;
   daysFuture: number;
   query: string;
@@ -207,6 +228,7 @@ export interface EmailSourceConfig extends BaseSourceConfig {
 export type SourceConfigType =
   | CSVSourceConfig
   | SnowflakeSourceConfig
+  | MssqlSourceConfig
   | ClockSourceConfig
   | HelloTESSSourceConfig
   | TagiNetSourceConfig
