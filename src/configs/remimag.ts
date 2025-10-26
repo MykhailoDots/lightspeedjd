@@ -19,7 +19,7 @@ const toOptionalBoolean = (value: string): boolean | undefined => {
 const baseRevenueSource = {
   type: "mssql" as const,
   enabled: true,
-  ignoredMissingCostCenters: [] as string[],
+  ignoredMissingCostCenters: ['600', '700', '800'] as string[],
   autoCreateMetricType: false,
   metricTypeCategory: "Ist",
   mergeMetricTypes: {
@@ -38,7 +38,7 @@ const baseRevenueSource = {
   requestTimeoutMs: toOptionalNumber(
     getEnvVar("MSSQL_REQUEST_TIMEOUT_MS", true)
   ),
-  daysPast: 365,
+  daysPast: 30,
   daysFuture: 0,
   query: `
 SELECT

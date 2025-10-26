@@ -324,6 +324,7 @@ const start = async () => {
   });
 
   let allFormattedMetricsToImport: SaveMetricDetailsInput[] = [];
+  const rawMetricsBySource: { sourceName: string; metric: MetricImport }[] = [];
 
   for (const source of appConfig.sources) {
     if (!source.enabled) {
@@ -373,6 +374,10 @@ const start = async () => {
         `Retrieved ${sourceMetrics.length} metrics from ${source.name}`
       );
 
+      sourceMetrics.forEach((metric) => {
+        rawMetricsBySource.push({ sourceName: source.name, metric });
+      });
+
       const {
         existingCostCenterIdsByNameMap,
         existingMetricTypesIdsByNameMap,
@@ -410,6 +415,124 @@ const start = async () => {
       await sendMessageToDiscord({ message });
       continue;
     }
+  }
+
+  rawMetricsBySource.sort((a, b) => {
+    const left = a.metric;
+    const right = b.metric;
+    return (
+      left.timestampCompatibleWithGranularity.localeCompare(
+        right.timestampCompatibleWithGranularity
+      ) ||
+      left.costCenter.localeCompare(right.costCenter) ||
+      left.metricType.localeCompare(right.metricType) ||
+      left.metricTypeCategory.localeCompare(right.metricTypeCategory) ||
+      a.sourceName.localeCompare(b.sourceName)
+    );
+  });
+
+  const duplicateRawMetrics = Array.from(
+    rawMetricsBySource.reduce(
+      (acc, entry) => {
+        const { metric, sourceName } = entry;
+        const dedupeKey = [
+          metric.timestampCompatibleWithGranularity,
+          metric.costCenter,
+          metric.metricType,
+          metric.metricTypeCategory,
+        ].join("|");
+
+        const list = acc.get(dedupeKey) ?? [];
+        list.push({ sourceName, metric });
+        acc.set(dedupeKey, list.sort((a, b) =>
+          a.sourceName.localeCompare(b.sourceName)
+        ));
+        return acc;
+      },
+      new Map<
+        string,
+        { sourceName: string; metric: MetricImport }[]
+      >()
+    )
+  )
+    .filter(([, entries]) => {
+      if (entries.length <= 1) {
+        return false;
+      }
+      const uniqueValues = new Set(
+        entries.map((entry) => Number(entry.metric.value))
+      );
+      return uniqueValues.size > 1;
+    })
+    .sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
+
+  if (duplicateRawMetrics.length > 0) {
+    logger.warn(
+      `Detected ${duplicateRawMetrics.length} conflicting raw metric entries before mapping.`
+    );
+    logger.warn("----- RAW CONFLICTS BEGIN -----");
+    duplicateRawMetrics.forEach(([key, entries], index) => {
+      logger.warn(
+        `Raw conflict key=${key} sources=${entries
+          .map((entry) => `${entry.sourceName}:${entry.metric.value}`)
+          .join(", ")}`
+      );
+      if (index < duplicateRawMetrics.length - 1) {
+        logger.warn("-----");
+      }
+    });
+    logger.warn("----- RAW CONFLICTS END -----");
+  }
+
+  const formattedConflicts: Array<{
+    key: string;
+    metrics: SaveMetricDetailsInput[];
+  }> = [];
+  const dedupedFormattedMetrics = new Map<string, SaveMetricDetailsInput>();
+
+  allFormattedMetricsToImport.forEach((metric) => {
+    const key = [
+      metric.timestamp,
+      metric.costCenterId,
+      metric.metricTypeId,
+      metric.metricTypeCategoryId,
+    ].join("|");
+
+    const existing = dedupedFormattedMetrics.get(key);
+    if (!existing) {
+      dedupedFormattedMetrics.set(key, metric);
+      return;
+    }
+
+    const existingValue = existing.value ?? 0;
+    const incomingValue = metric.value ?? 0;
+    if (Math.abs(existingValue - incomingValue) < 0.000001) {
+      // Identical value from another source, skip silently.
+      return;
+    }
+
+    formattedConflicts.push({ key, metrics: [existing, metric] });
+    // Keep the first occurrence; the later conflicting value is dropped.
+  });
+
+  allFormattedMetricsToImport = Array.from(dedupedFormattedMetrics.values());
+
+  if (formattedConflicts.length > 0) {
+    logger.warn(
+      `Detected ${formattedConflicts.length} conflicting formatted metric entries across sources.`
+    );
+    logger.warn("----- FORMATTED CONFLICTS BEGIN -----");
+    formattedConflicts.forEach(({ key, metrics }, index) => {
+      logger.warn(
+        `Formatted conflict key=${key} values=${metrics
+          .map((metric) => metric.value)
+          .join(", ")}`
+      );
+      if (index < formattedConflicts.length - 1) {
+        logger.warn("-----");
+      }
+    });
+    logger.warn("----- FORMATTED CONFLICTS END -----");
   }
 
   allFormattedMetricsToImport.sort((a, b) => {
