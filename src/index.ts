@@ -11,6 +11,8 @@ import { sendMessageToDiscord } from "./helper/discord";
 import { importFromCsv } from "./sources/csv";
 import { importFromSnowflake } from "./sources/snowflake";
 import { importFromMssql } from "./sources/mssql";
+import { importFromPowerBIServicePrincipal } from "./sources/powerbi-service-principal";
+import { importFromPowerBIDelegated } from "./sources/powerbi-delegated";
 import {
   getCostCenters,
   getMetricTypes,
@@ -22,6 +24,7 @@ import { importFromClock } from "./sources/clock";
 import { importFromTagiNet } from "./sources/taginet";
 import { importFromHelloTESS } from "./sources/hellotess";
 import { importFromEmail } from "./sources/mail";
+import { importFromLightspeed } from "./sources/lightspeed";
 
 export interface MetricImport {
   timestampCompatibleWithGranularity: string;
@@ -30,6 +33,36 @@ export interface MetricImport {
   value: string;
   metricTypeCategory: string; // renamed from targetField
 }
+
+const normalizeCostCenterKey = (
+  value: string,
+  prefixLength?: number
+): string => {
+  if (!value) return value;
+  if (prefixLength && prefixLength > 0 && value.length > prefixLength) {
+    return value.slice(0, prefixLength);
+  }
+  return value;
+};
+
+const resolveFanOutTargets = (
+  metricCostCenter: string,
+  sourceConfig: SourceConfigType,
+  existingCostCenterIdsByNameMap: Map<string, string>
+): string[] => {
+  const normalized = normalizeCostCenterKey(
+    metricCostCenter,
+    sourceConfig.costCenterPrefixLength
+  );
+  const fanOut = sourceConfig.costCenterFanOut;
+  if (fanOut?.mode === "mapping") {
+    const mapped = fanOut.mapping[normalized];
+    if (mapped && mapped.length > 0) {
+      return mapped;
+    }
+  }
+  return [normalized];
+};
 
 const validateMetricsForSource = async (
   metricsToImport: MetricImport[],
@@ -52,17 +85,70 @@ const validateMetricsForSource = async (
   });
 
   const costCenterMappingField = sourceConfig.costCenterMappingField;
+  const costCenterPrefixLength = sourceConfig.costCenterPrefixLength;
   const existingCostCenterIdsByNameMap: Map<string, string> = new Map();
   const existingMetricTypesIdsByNameMap: Map<string, string> = new Map();
   const metricTypeMappingsByNameMap = new Map();
 
   // Build the map using the selected field
-  existingCostCenters.costCenter.forEach((c) => {
-    const key = c[costCenterMappingField as keyof typeof c];
-    if (key) {
-      existingCostCenterIdsByNameMap.set(key as string, c.id);
+  const getCostCenterKey = (cc: CostCentersByOrganizationIdQuery["costCenter"][number]) => {
+    const raw = cc[costCenterMappingField as keyof typeof cc];
+    if (raw) return String(raw);
+    if (costCenterMappingField === "customId" && cc.name) {
+      return String(cc.name);
     }
+    return "";
+  };
+
+  const sortedCostCenters = [...existingCostCenters.costCenter].sort((a, b) => {
+    const aRaw = getCostCenterKey(a);
+    const bRaw = getCostCenterKey(b);
+
+    if (
+      costCenterMappingField === "customId" &&
+      costCenterPrefixLength &&
+      costCenterPrefixLength > 0
+    ) {
+      const aPref = aRaw.endsWith("00") ? 0 : 1;
+      const bPref = bRaw.endsWith("00") ? 0 : 1;
+      if (aPref !== bPref) return aPref - bPref;
+    }
+
+    return aRaw.localeCompare(bRaw) || a.id.localeCompare(b.id);
   });
+
+  const duplicateCostCenterKeys: Map<string, string[]> = new Map();
+  const normalizedKeys: Map<string, string> = new Map();
+
+  sortedCostCenters.forEach((c) => {
+    const rawKeyStr = getCostCenterKey(c);
+    if (!rawKeyStr) return;
+    const key = normalizeCostCenterKey(rawKeyStr, costCenterPrefixLength);
+
+    if (normalizedKeys.has(key)) {
+      const list = duplicateCostCenterKeys.get(key) ?? [];
+      list.push(rawKeyStr);
+      duplicateCostCenterKeys.set(key, list);
+    } else {
+      normalizedKeys.set(key, c.id);
+      existingCostCenterIdsByNameMap.set(key, c.id);
+    }
+
+    // Always register the full key for explicit fan-out mappings.
+    existingCostCenterIdsByNameMap.set(rawKeyStr, c.id);
+  });
+
+  if (duplicateCostCenterKeys.size > 0) {
+    const preview = Array.from(duplicateCostCenterKeys.entries())
+      .slice(0, 5)
+      .map(([key, values]) => `${key} -> ${values.join(", ")}`)
+      .join(" | ");
+    logger.warn(
+      `[${sourceConfig.name}] Multiple cost centers share the same key after prefixing. ` +
+        `Using the first match (prefer customId ending in "00" when available). ` +
+        `Examples: ${preview}${duplicateCostCenterKeys.size > 5 ? " ..." : ""}`
+    );
+  }
   renamedExistingMetricTypes.forEach((m) => {
     existingMetricTypesIdsByNameMap.set(m.name, m.id);
   });
@@ -71,20 +157,24 @@ const validateMetricsForSource = async (
   });
 
   const costCenterNamesToImport = new Set(
-    metricsToImport.map((m) => m.costCenter)
+    metricsToImport.flatMap((m) =>
+      resolveFanOutTargets(m.costCenter, sourceConfig, existingCostCenterIdsByNameMap)
+    )
   );
   const metricTypeNamesToImport = new Set(
     metricsToImport.map((m) => m.metricType)
   );
 
   // Check by selected field excluding ignored cost centers
-  const notExistingCostCenterNames = Array.from(costCenterNamesToImport)
-    .filter(
-      (c) =>
-        !existingCostCenters.costCenter.some(
-          (cc) => cc[costCenterMappingField as keyof typeof cc] === c
-        )
-    )
+  const notExistingCostCenterNames = Array.from(costCenterNamesToImport).filter(
+    (c) =>
+      !existingCostCenters.costCenter.some((cc) => {
+        const rawKeyStr = getCostCenterKey(cc);
+        if (!rawKeyStr) return false;
+        const normalized = normalizeCostCenterKey(rawKeyStr, costCenterPrefixLength);
+        return normalized === c || rawKeyStr === c;
+      })
+  )
     .filter((c) => !sourceConfig.ignoredMissingCostCenters.includes(c));
 
   const notExistingMetricTypeNames = Array.from(metricTypeNamesToImport).filter(
@@ -205,70 +295,86 @@ const formatMetricsForImport = (
     MetricImport: MetricImport;
     Reason: string;
   }[] = [];
+  const costCenterPrefixLength = sourceConfig.costCenterPrefixLength;
 
   sourceMetrics.forEach((m) => {
-    const costCenterId = existingCostCenterIdsByNameMap.get(m.costCenter);
+    const targetCostCenters = resolveFanOutTargets(
+      m.costCenter,
+      sourceConfig,
+      existingCostCenterIdsByNameMap
+    );
     const metricTypeId = sourceConfig.mergeMetricTypes.enabled
       ? existingMetricTypesIdsByNameMap.get(sourceConfig.mergeMetricTypes.name)
       : existingMetricTypesIdsByNameMap.get(m.metricType);
 
-    if (!costCenterId) {
-      if (!sourceConfig.ignoredMissingCostCenters.includes(m.costCenter)) {
-        logger.error(
-          `[${sourceConfig.name}] Cost center does not exist: ${m.costCenter}`
-        );
-        metricsUnableToImport.push({
-          MetricImport: m,
-          Reason: `Cost center does not exist: ${m.costCenter}`,
-        });
-      }
-      return;
-    }
+    let foundAnyCostCenter = false;
 
-    if (!metricTypeId) {
-      if (sourceConfig.mergeMetricTypes.enabled) {
-        logger.error(
-          `[${sourceConfig.name}] Merge Metric type does not exist: ${sourceConfig.mergeMetricTypes.name}`
-        );
-        metricsUnableToImport.push({
-          MetricImport: m,
-          Reason: `Merge Metric type does not exist: ${sourceConfig.mergeMetricTypes.name}`,
-        });
-      } else {
-        logger.error(
-          `[${sourceConfig.name}] Metric type does not exist: ${m.metricType}`
-        );
-        metricsUnableToImport.push({
-          MetricImport: m,
-          Reason: `Metric type does not exist: ${m.metricType}`,
-        });
+    targetCostCenters.forEach((targetKey) => {
+      const costCenterId = existingCostCenterIdsByNameMap.get(targetKey);
+      if (!costCenterId) {
+        if (!sourceConfig.ignoredMissingCostCenters.includes(targetKey)) {
+          logger.error(
+            `[${sourceConfig.name}] Cost center does not exist: ${targetKey}`
+          );
+          metricsUnableToImport.push({
+            MetricImport: m,
+            Reason: `Cost center does not exist: ${targetKey}`,
+          });
+        }
+        return;
       }
-      return;
-    }
 
-    const metricTypeCategoryId = existingMetricTypeCategoryIdsByNameMap.get(
-      m.metricTypeCategory
-    );
-    if (!metricTypeCategoryId) {
-      logger.error(
-        `[${sourceConfig.name}] Metric type category does not exist: ${m.metricTypeCategory}`
+      foundAnyCostCenter = true;
+
+      if (!metricTypeId) {
+        if (sourceConfig.mergeMetricTypes.enabled) {
+          logger.error(
+            `[${sourceConfig.name}] Merge Metric type does not exist: ${sourceConfig.mergeMetricTypes.name}`
+          );
+          metricsUnableToImport.push({
+            MetricImport: m,
+            Reason: `Merge Metric type does not exist: ${sourceConfig.mergeMetricTypes.name}`,
+          });
+        } else {
+          logger.error(
+            `[${sourceConfig.name}] Metric type does not exist: ${m.metricType}`
+          );
+          metricsUnableToImport.push({
+            MetricImport: m,
+            Reason: `Metric type does not exist: ${m.metricType}`,
+          });
+        }
+        return;
+      }
+
+      const metricTypeCategoryId = existingMetricTypeCategoryIdsByNameMap.get(
+        m.metricTypeCategory
       );
-      metricsUnableToImport.push({
-        MetricImport: m,
-        Reason: `Metric type category does not exist: ${m.metricTypeCategory}`,
+      if (!metricTypeCategoryId) {
+        logger.error(
+          `[${sourceConfig.name}] Metric type category does not exist: ${m.metricTypeCategory}`
+        );
+        metricsUnableToImport.push({
+          MetricImport: m,
+          Reason: `Metric type category does not exist: ${m.metricTypeCategory}`,
+        });
+        return;
+      }
+
+      formattedMetrics.push({
+        costCenterId,
+        metricTypeId,
+        metricTypeCategoryId,
+        // description: null, // IMPORTANT: Removing entierly, to not overwrite existing descriptions from users!
+        timeZone,
+        timestamp: m.timestampCompatibleWithGranularity,
+        value: parseFloat(parseFloat(m.value).toFixed(2)),
       });
+    });
+
+    if (!foundAnyCostCenter) {
       return;
     }
-
-    formattedMetrics.push({
-      costCenterId,
-      metricTypeId,
-      metricTypeCategoryId,
-      // description: null, // IMPORTANT: Removing entierly, to not overwrite existing descriptions from users!
-      timeZone,
-      timestamp: m.timestampCompatibleWithGranularity,
-      value: parseFloat(parseFloat(m.value).toFixed(2)),
-    });
   });
 
   if (metricsUnableToImport.length > 0) {
@@ -358,6 +464,21 @@ const start = async () => {
           break;
         case "email":
           sourceMetrics = await importFromEmail(source, appConfig.timeZone);
+          break;
+        case "lightspeed":
+          sourceMetrics = await importFromLightspeed(source, appConfig.timeZone);
+          break;
+        case "powerbi-sp":
+          sourceMetrics = await importFromPowerBIServicePrincipal(
+            source,
+            appConfig.timeZone
+          );
+          break;
+        case "powerbi-delegated":
+          sourceMetrics = await importFromPowerBIDelegated(
+            source,
+            appConfig.timeZone
+          );
           break;
         default: {
           const unknownSource = source as { name?: string; type: string };
@@ -559,24 +680,41 @@ const start = async () => {
   }
 };
 
-logger.info(`Cron time: ${appEnvironment.cronTime}`);
+const runOnce = process.env.RUN_ONCE === "true";
 
-CronJob.from({
-  cronTime: appEnvironment.cronTime,
-  onTick: async () => {
-    try {
-      await start();
-    } catch (e) {
+if (runOnce) {
+  start()
+    .then(() => {
+      logger.info("Run-once completed.");
+      process.exit(0);
+    })
+    .catch((e) => {
       console.log(e);
       logger.error(
-        `Metric Importer crashed, Error: ${JSON.stringify(e, null, 2)}`
+        `Run-once failed, Error: ${JSON.stringify(e, null, 2)}`
       );
-    }
-  },
-  start: true,
-  timeZone: "Europe/Zurich",
-  runOnInit: true,
-});
+      process.exit(1);
+    });
+} else {
+  logger.info(`Cron time: ${appEnvironment.cronTime}`);
+
+  CronJob.from({
+    cronTime: appEnvironment.cronTime,
+    onTick: async () => {
+      try {
+        await start();
+      } catch (e) {
+        console.log(e);
+        logger.error(
+          `Metric Importer crashed, Error: ${JSON.stringify(e, null, 2)}`
+        );
+      }
+    },
+    start: true,
+    timeZone: "Europe/Zurich",
+    runOnInit: true,
+  });
+}
 
 process.on("SIGINT", async () => {
   logger.warn("Importer aborted...");

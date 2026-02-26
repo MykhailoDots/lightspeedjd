@@ -5,6 +5,8 @@ import { appConfigHotelMonopol } from "./configs/hotel-monopol";
 import { appConfigSmallFoot } from "./configs/small-foot";
 import { appConfigAstroFries } from "./configs/astro-fries";
 import { appConfigRemimag } from "./configs/remimag";
+import { appConfigTibits } from "./configs/tibits";
+import { appConfigKusch } from "./configs/kusch";
 
 export function getEnvVar(name: string, isOptional = false): string {
   const value = process.env[name];
@@ -47,6 +49,12 @@ export function getAppConfig() {
     case "Remimag":
     case "remimag":
       return appConfigRemimag;
+    case "tibits":
+    case "Tibits":
+      return appConfigTibits;
+    case "kusch":
+    case "Kusch":
+      return appConfigKusch;
     default:
       throw new Error(`Unknown config file: ${configFile}`);
   }
@@ -89,7 +97,10 @@ export type SOURCE_TYPE =
   | "clock"
   | "hellotess"
   | "taginet"
-  | "email";
+  | "email"
+  | "lightspeed"
+  | "powerbi-sp"
+  | "powerbi-delegated";
 
 export interface TransformColumn {
   outputColumn: string;
@@ -120,6 +131,14 @@ export interface BaseSourceConfig {
    * Field to use for cost center mapping: 'name' (default), 'customId', or 'customId2'.
    */
   costCenterMappingField: "name" | "customId" | "customId2";
+  /**
+   * Optional prefix length for matching cost centers (e.g. match "61" to "61100").
+   */
+  costCenterPrefixLength?: number;
+  costCenterFanOut?: {
+    mode: "mapping";
+    mapping: Record<string, string[]>;
+  };
 }
 
 export interface CSVSourceConfig extends BaseSourceConfig {
@@ -181,6 +200,16 @@ export interface HelloTESSSourceConfig extends BaseSourceConfig {
   daysPast: number;
   daysFuture: number;
   storeId?: string;
+  /**
+   * Optional store name filter (case-insensitive).
+   * Useful when multiple locations share the same helloTESS host/key.
+   */
+  storeNameFilter?: string;
+  /**
+   * Optional prefix to prepend to the store name when mapping cost centers.
+   * Example: "kusch-" -> "kusch-Chamanna".
+   */
+  costCenterNamePrefix?: string;
   revenueType?: "net" | "gross"; // default is 'net' if not specified
   // Historical data import options
   historicalImport?: {
@@ -225,6 +254,167 @@ export interface EmailSourceConfig extends BaseSourceConfig {
   };
 }
 
+export interface PowerBIServicePrincipalSourceConfig extends BaseSourceConfig {
+  type: "powerbi-sp";
+  tenantId: string;
+  clientId: string;
+  clientSecret: string;
+  datasetId: string;
+  groupId?: string;
+  daxQuery: string; // use {fromDate} and {toDate} tokens for date filtering
+  daysPast: number;
+  daysFuture: number;
+}
+
+export interface PowerBIDelegatedSourceConfig extends BaseSourceConfig {
+  type: "powerbi-delegated";
+  tenantId: string;
+  clientId: string;
+  /**
+   * UPN of the technical user that holds the Power BI Pro license and RLS roles.
+   */
+  userPrincipalName: string;
+  /**
+   * Optional custom cache file for the MSAL token cache.
+   */
+  tokenCachePath?: string;
+  datasetId: string;
+  groupId?: string;
+  daxQuery: string;
+  daysPast: number;
+  daysFuture: number;
+}
+
+export type LightspeedEnvironment = "demo" | "prod";
+export type LightspeedAuthVersion = "v1" | "v2";
+export type LightspeedSalesFetchMode = "daily" | "range";
+export type LightspeedCostCenterFrom = "id" | "name";
+
+export type LightspeedMetricOutputKind =
+  | "revenue"
+  | "covers"
+  | "transactions"
+  | "laborHours";
+
+export interface LightspeedMetricOutputBase {
+  enabled: boolean;
+  kind: LightspeedMetricOutputKind;
+  /**
+   * Metric type name as it should appear (or be mapped via metricTypeMappings).
+   */
+  metricType: string;
+  /**
+   * Overrides source.metricTypeCategory for this output.
+   */
+  metricTypeCategory?: string;
+}
+
+type LightspeedSaleType =
+  | "SALE"
+  | "VOID"
+  | "RECALL"
+  | "REFUND"
+  | "SPLIT"
+  | "UPDATE"
+  | "TRANSFER"
+  | "FLOAT"
+  | "TRANSITORY"
+  | "CROSS_BL"
+  | "CANCEL";
+
+export interface LightspeedRevenueOutput extends LightspeedMetricOutputBase {
+  kind: "revenue";
+  revenueType: "net" | "gross";
+  includeServiceCharge?: boolean;
+  saleTypesToInclude?: LightspeedSaleType[];
+  includeVoidedLines?: boolean;
+}
+
+export interface LightspeedCoversOutput extends LightspeedMetricOutputBase {
+  kind: "covers";
+}
+
+export interface LightspeedTransactionsOutput extends LightspeedMetricOutputBase {
+  kind: "transactions";
+  saleTypesToInclude?: LightspeedSaleType[];
+}
+
+export interface LightspeedLaborHoursOutput extends LightspeedMetricOutputBase {
+  kind: "laborHours";
+  roundingDecimals?: number;
+}
+
+export type LightspeedMetricOutput =
+  | LightspeedRevenueOutput
+  | LightspeedCoversOutput
+  | LightspeedTransactionsOutput
+  | LightspeedLaborHoursOutput;
+
+export interface LightspeedSourceConfig extends BaseSourceConfig {
+  type: "lightspeed";
+
+  environment: LightspeedEnvironment;
+
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+
+  /**
+   * Provide either refreshToken (preferred) or authorizationCode for bootstrap.
+   */
+  refreshToken?: string;
+  authorizationCode?: string;
+
+  /**
+   * Optional: force auth version; otherwise inferred (devp-v2 => v2).
+   */
+  authVersion?: LightspeedAuthVersion;
+
+  /**
+   * Optional URL overrides (useful for sandbox).
+   */
+  apiBaseUrl?: string;
+  authBaseUrl?: string;
+
+  /**
+   * Optional scopes to include when generating an auth URL (logging only).
+   */
+  scopes?: string[];
+
+  /**
+   * Optional token cache path (default: .lightspeed-token-<name>-<env>.json).
+   */
+  tokenCachePath?: string;
+
+  businessLocationIds?: number[];
+
+  /**
+   * If provided, overrides costCenter derivation; keys are businessLocationId as string.
+   * Value must match the field selected by costCenterMappingField.
+   */
+  costCenterByBusinessLocationId?: Record<string, string>;
+
+  /**
+   * When costCenterByBusinessLocationId is not set:
+   *  - "name" uses Lightspeed business location name (default)
+   *  - "id" uses businessLocationId as a string
+   */
+  costCenterFrom?: LightspeedCostCenterFrom;
+
+  daysPast: number;
+  daysFuture: number;
+
+  salesFetchMode?: LightspeedSalesFetchMode;
+  pageSize?: number;
+
+  /**
+   * If true, skip business days where FinancialV2 returns dataComplete=false.
+   */
+  skipIncompleteDays?: boolean;
+
+  outputs: LightspeedMetricOutput[];
+}
+
 export type SourceConfigType =
   | CSVSourceConfig
   | SnowflakeSourceConfig
@@ -232,7 +422,10 @@ export type SourceConfigType =
   | ClockSourceConfig
   | HelloTESSSourceConfig
   | TagiNetSourceConfig
-  | EmailSourceConfig;
+  | EmailSourceConfig
+  | LightspeedSourceConfig
+  | PowerBIServicePrincipalSourceConfig
+  | PowerBIDelegatedSourceConfig;
 
 export interface AppConfig {
   sources: SourceConfigType[];

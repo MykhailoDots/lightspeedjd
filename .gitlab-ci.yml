@@ -1,0 +1,23 @@
+stages:
+  - 🐳build
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_HOST: tcp://docker:2375
+
+default:
+  tags:
+    - JobDone
+
+📦docker-build:
+  extends:
+    - .📦docker-build
+  variables:
+    PATH_TO_DOCKERFILE: Dockerfile
+  cache: []
+
+include:
+  - project: "jobdone/devops/pipelines/gitlab-pipelines"
+    file: "/.gitlab-ci-jobdone-🐳build-dind.yml"
+    ref: main
