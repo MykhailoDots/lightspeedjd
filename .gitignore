@@ -179,3 +179,7 @@ dist
 *.log
 cache
 *.secret
+
+# Auth token caches
+.msal-pbi-cache.json
+.lightspeed-token-*.json

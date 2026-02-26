@@ -3,7 +3,7 @@ import type { CodegenConfig } from '@graphql-codegen/cli';
 const config: CodegenConfig = {
   overwrite: true,
   schema: {
-    'https://api-main.work1.hu1.jobdone-development.app/v1/graphql': {
+    'https://api-main.jobdone-development.app/v1/graphql': {
       headers: {
         'x-hasura-admin-secret': 'RememberThatTimeWhenWeWentForKaraoke',
       },

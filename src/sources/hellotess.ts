@@ -100,7 +100,19 @@ const processInvoices = (
     }
 
     const invoiceDate = dayjs(invoice.date).format("YYYY-MM-DD");
-    const storeName = invoice?.location?.store?.name?.trim();
+    const storeNameRaw = invoice?.location?.store?.name?.trim();
+    if (!storeNameRaw) {
+      return;
+    }
+    if (source.storeNameFilter) {
+      const filterNormalized = source.storeNameFilter.trim().toLowerCase();
+      if (storeNameRaw.toLowerCase() !== filterNormalized) {
+        return;
+      }
+    }
+    const storeName = source.costCenterNamePrefix
+      ? `${source.costCenterNamePrefix}${storeNameRaw}`
+      : storeNameRaw;
 
     // Determine whether to use net or gross revenue based on configuration
     // Default to net if not specified
