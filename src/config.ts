@@ -121,9 +121,9 @@ export interface BaseSourceConfig {
   metricTypeMappings: MetricTypeMapping[];
   metricTypeCategory: string;
   /**
-   * Field to use for cost center mapping: 'name' (default), 'customId', or 'customId2'.
+   * Field to use for cost center mapping: 'name', 'customId', 'customId2', or 'customId3'.
    */
-  costCenterMappingField: "name" | "customId" | "customId2";
+  costCenterMappingField: "name" | "customId" | "customId2" | "customId3";
   /**
    * Optional prefix length for matching cost centers (e.g. match "61" to "61100").
    */
@@ -203,6 +203,12 @@ export interface HelloTESSSourceConfig extends BaseSourceConfig {
    * Example: "kusch-" -> "kusch-Chamanna".
    */
   costCenterNamePrefix?: string;
+  /**
+   * Controls which helloTESS store field is used as metric.costCenter.
+   * - "storeName" (default): invoice.location.store.name (+ optional prefix)
+   * - "storeId": invoice.location.store.id
+   */
+  costCenterFrom?: "storeName" | "storeId";
   revenueType?: "net" | "gross"; // default is 'net' if not specified
   // Historical data import options
   historicalImport?: {

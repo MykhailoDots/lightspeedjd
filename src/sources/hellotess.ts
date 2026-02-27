@@ -92,6 +92,7 @@ const processInvoices = (
 ): MetricImport[] => {
   // Group invoices by date and store
   const dailyRevenue = new Map<string, Map<string, number>>();
+  const costCenterFrom = source.costCenterFrom || "storeName";
 
   invoices.forEach((invoice: HelloTESSInvoice) => {
     // Skip cancelled invoices
@@ -110,9 +111,16 @@ const processInvoices = (
         return;
       }
     }
-    const storeName = source.costCenterNamePrefix
-      ? `${source.costCenterNamePrefix}${storeNameRaw}`
-      : storeNameRaw;
+    const storeIdRaw = invoice?.location?.store?.id?.trim();
+    const costCenterRaw =
+      costCenterFrom === "storeId" ? storeIdRaw : storeNameRaw;
+    if (!costCenterRaw) {
+      return;
+    }
+    const costCenter =
+      costCenterFrom === "storeName" && source.costCenterNamePrefix
+        ? `${source.costCenterNamePrefix}${costCenterRaw}`
+        : costCenterRaw;
 
     // Determine whether to use net or gross revenue based on configuration
     // Default to net if not specified
@@ -129,15 +137,15 @@ const processInvoices = (
     }
 
     const dateMap = dailyRevenue.get(invoiceDate)!;
-    const currentTotal = dateMap.get(storeName) || 0;
-    dateMap.set(storeName, currentTotal + amount);
+    const currentTotal = dateMap.get(costCenter) || 0;
+    dateMap.set(costCenter, currentTotal + amount);
   });
 
   // Convert to MetricImport format
   const metricsToImport: MetricImport[] = [];
 
   dailyRevenue.forEach((storeMap, date) => {
-    storeMap.forEach((total, storeName) => {
+    storeMap.forEach((total, costCenter) => {
       // Round to 2 decimal places
       const roundedTotal = parseFloat(total.toFixed(2));
       metricsToImport.push({
@@ -145,7 +153,7 @@ const processInvoices = (
           .tz(date, timeZone)
           .utc()
           .toISOString(),
-        costCenter: storeName,
+        costCenter,
         metricType: "Umsatz",
         value: roundedTotal.toString(),
         metricTypeCategory: source.metricTypeCategory,

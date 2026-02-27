@@ -6,5 +6,6 @@ query CostCentersByOrganizationId($organizationId: uuid = "") {
         status
         customId
         customId2
+        customId3
     }
 }

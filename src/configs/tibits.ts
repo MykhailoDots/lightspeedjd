@@ -26,7 +26,8 @@ const costCenterMappingFieldEnv = getEnvVar(
 const costCenterMappingField: PowerBIDelegatedSourceConfig["costCenterMappingField"] =
   costCenterMappingFieldEnv === "name" ||
   costCenterMappingFieldEnv === "customId" ||
-  costCenterMappingFieldEnv === "customId2"
+  costCenterMappingFieldEnv === "customId2" ||
+  costCenterMappingFieldEnv === "customId3"
     ? costCenterMappingFieldEnv
     : "customId";
 
@@ -61,7 +62,8 @@ const costCenterPrefixLength = parseIntOr(
 );
 
 const costCenterExpr =
-  costCenterMappingField === "customId2"
+  costCenterMappingField === "customId2" ||
+  costCenterMappingField === "customId3"
     ? "MAX('Betriebe'[Betrieb])"
     : `FORMAT(MAX('Betriebe'[Betriebscode]), "0")`;
 const ignoredMissingCostCenters = ["10"];
