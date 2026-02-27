@@ -1,5 +1,5 @@
 {
-  "name": "jobdone-metric-importer",
+  "name": "jobdone-isolated-metric-importer",
   "module": "src/index.ts",
   "type": "module",
   "scripts": {

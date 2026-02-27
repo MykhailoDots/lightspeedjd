@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "jobdone-metric-importer",
+      "name": "jobdone-isolated-metric-importer",
       "dependencies": {
         "@aws-sdk/client-cognito-identity-provider": "^3.592.0",
         "@azure/msal-node": "^2.9.2",

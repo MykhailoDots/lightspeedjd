@@ -1,4 +1,4 @@
-# jobdone-metric-importer
+# jobdone-isolated-metric-importer
 
 1) Install Docker: <https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository>
 
@@ -10,7 +10,7 @@
 sudo docker compose up --build --force-recreate -d
 sudo docker compose logs -f
 
-sudo docker exec -it jobdone-metric-importer /bin/sh
+sudo docker exec -it jobdone-isolated-metric-importer /bin/sh
 
 sudo docker compose down
 sudo docker compose down -v
@@ -20,7 +20,7 @@ sudo docker compose down -v
 sudo docker compose -f docker-compose.bindella.yml up --build --force-recreate -d
 sudo docker compose -f docker-compose.bindella.yml logs -f
 
-sudo docker exec -it jobdone-metric-importer /bin/sh
+sudo docker exec -it jobdone-isolated-metric-importer /bin/sh
 
 sudo docker compose -f docker-compose.bindella.yml down
 sudo docker compose -f docker-compose.bindella.yml down -v

@@ -131,7 +131,7 @@ I can attach the updated configs here:
 
 
 ===============================
-Project Name: 'jobdone-metric-importer'
+Project Name: 'jobdone-isolated-metric-importer'
 File Path: 'src/configs/bindella.ts'
 File Content:
 ```ts
@@ -204,7 +204,7 @@ export const appConfigBindella: AppConfig = {
 ===============================
 
 ===============================
-Project Name: 'jobdone-metric-importer'
+Project Name: 'jobdone-isolated-metric-importer'
 File Path: 'src/configs/fwg.ts'
 File Content:
 ```ts
@@ -408,7 +408,7 @@ ORDER BY OUTLET_ID, date;
 ===============================
 
 ===============================
-Project Name: 'jobdone-metric-importer'
+Project Name: 'jobdone-isolated-metric-importer'
 File Path: 'src/configs/hotel-monopol.ts'
 File Content:
 ```ts
@@ -453,7 +453,7 @@ Here are the other things we fetch:
 
 
 ===============================
-Project Name: 'jobdone-metric-importer'
+Project Name: 'jobdone-isolated-metric-importer'
 File Path: 'src/api/costCentersByOrganizationId.graphql'
 File Content:
 ```graphql
@@ -483,7 +483,7 @@ Here are the rest of the project files:
 
 
 ===============================
-Project Name: 'jobdone-metric-importer'
+Project Name: 'jobdone-isolated-metric-importer'
 File Path: 'src/index.ts'
 File Content:
 ```ts
@@ -867,7 +867,7 @@ process.on("SIGINT", async () => {
 
 
 ===============================
-Project Name: 'jobdone-metric-importer'
+Project Name: 'jobdone-isolated-metric-importer'
 File Path: 'src/config.ts'
 File Content:
 ```ts
@@ -1014,7 +1014,7 @@ export interface AppConfig {
 ===============================
 
 ===============================
-Project Name: 'jobdone-metric-importer'
+Project Name: 'jobdone-isolated-metric-importer'
 File Path: 'src/util.ts'
 File Content:
 ```ts
@@ -1127,12 +1127,12 @@ Hre are the sources:
 
 
 ===============================
-Project Name: 'jobdone-metric-importer'
+Project Name: 'jobdone-isolated-metric-importer'
 Directory Path: 'src/sources'
 ===============================
 
 ===============================
-Project Name: 'jobdone-metric-importer'
+Project Name: 'jobdone-isolated-metric-importer'
 File Path: 'src/sources/clock.ts'
 File Content:
 ```ts
@@ -1426,7 +1426,7 @@ export const importFromClock = async (
 ===============================
 
 ===============================
-Project Name: 'jobdone-metric-importer'
+Project Name: 'jobdone-isolated-metric-importer'
 File Path: 'src/sources/csv.ts'
 File Content:
 ```ts
@@ -1595,7 +1595,7 @@ export const importFromCsv = async (
 ===============================
 
 ===============================
-Project Name: 'jobdone-metric-importer'
+Project Name: 'jobdone-isolated-metric-importer'
 File Path: 'src/sources/snowflake.ts'
 File Content:
 ```ts

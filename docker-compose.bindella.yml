@@ -1,8 +1,8 @@
 version: "3.8"
 
 services:
-  jobdone-metric-importer:
-    container_name: jobdone-metric-importer
+  jobdone-isolated-metric-importer:
+    container_name: jobdone-isolated-metric-importer
     build:
       context: .
       no_cache: true
@@ -10,7 +10,7 @@ services:
       - NODE_ENV=production
     command: bun run start
     volumes:
-      - jobdone-metric-importer-logs:/app/logs
+      - jobdone-isolated-metric-importer-logs:/app/logs
       - /home/sftp-bindella-user-1/uploads/JD_Umsatz_Gastro.csv:/app/JD_Umsatz_Gastro.csv:ro
     restart: unless-stopped
     logging:
@@ -20,5 +20,5 @@ services:
         max-file: "5" # Max number of log files to retain
 
 volumes:
-  jobdone-metric-importer-logs:
-  jobdone-metric-importer-import-file:
+  jobdone-isolated-metric-importer-logs:
+  jobdone-isolated-metric-importer-import-file:

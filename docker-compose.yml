@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  jobdone-metric-importer:
+  jobdone-isolated-metric-importer:
     build: 
       context: .
       no_cache: true
@@ -9,7 +9,7 @@ services:
       - NODE_ENV=production
     command: bun run start
     volumes:
-      - ./logs/jobdone-metric-importer:/app/logs
+      - ./logs/jobdone-isolated-metric-importer:/app/logs
     restart: unless-stopped
     logging:
       driver: "json-file"
