@@ -2,6 +2,7 @@ import { PublicClientApplication, LogLevel, type AccountInfo } from "@azure/msal
 import fs from "node:fs";
 import dayjs from "../helper/customDayJs";
 import logger from "../helper/logger";
+import { sendMessageToDiscord } from "../helper/discord";
 import type { PowerBIDelegatedSourceConfig } from "../config";
 import type { MetricImport } from "..";
 
@@ -86,9 +87,9 @@ const acquireDelegatedToken = async (
 
   const deviceCodeRequest = {
     deviceCodeCallback: (response: any) => {
-      logger.warn(
-        `[${config.name}] Device code flow: visit ${response.verificationUri} and enter code ${response.userCode}`
-      );
+      const message = `[${config.name}] Power BI device code login required: visit ${response.verificationUri} and enter code ${response.userCode}`;
+      logger.warn(message);
+      void sendMessageToDiscord({ message });
     },
     scopes,
   } as const;

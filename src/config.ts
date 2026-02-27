@@ -7,6 +7,7 @@ import { appConfigAstroFries } from "./configs/astro-fries";
 import { appConfigRemimag } from "./configs/remimag";
 import { appConfigTibits } from "./configs/tibits";
 import { appConfigKusch } from "./configs/kusch";
+import { appConfigSeerose } from "./configs/seerose";
 
 export function getEnvVar(name: string, isOptional = false): string {
   const value = process.env[name];
@@ -31,16 +32,8 @@ export function getAppConfig() {
     case "Hotel Monopol":
       return appConfigHotelMonopol;
     case "seerose":
-      return appConfigDamnDelicious;
-    case "weisses-roessli":
-      return appConfigDamnDelicious;
-    case "coffee-and-plants":
-      return appConfigDamnDelicious;
-    case "straeme":
-      return appConfigDamnDelicious;
-    case "stadthof":
-      return appConfigDamnDelicious;
-    case "casi-casa":
+      return appConfigSeerose;
+    case "damn-delicious":
       return appConfigDamnDelicious;
     case "small Foot":
       return appConfigSmallFoot;
