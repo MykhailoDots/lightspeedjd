@@ -7,7 +7,7 @@ import type { HelloTESSSourceConfig } from "../config";
 import path from "path";
 import fs from "fs/promises";
 
-interface HelloTESSInvoice {
+export interface HelloTESSInvoice {
   id: string;
   number: string;
   date: string;
@@ -47,9 +47,9 @@ interface HelloTESSInvoice {
 }
 
 // Store historical import status in a file to avoid repeated imports
-const HISTORICAL_IMPORT_STATUS_FILE = ".hellotess_historical_import_done";
+export const HISTORICAL_IMPORT_STATUS_FILE = ".hellotess_historical_import_done";
 
-const checkHistoricalImportDone = async (
+export const checkHistoricalImportDone = async (
   sourceName: string,
   host: string
 ): Promise<boolean> => {
@@ -65,7 +65,7 @@ const checkHistoricalImportDone = async (
   }
 };
 
-const markHistoricalImportDone = async (
+export const markHistoricalImportDone = async (
   sourceName: string,
   host: string
 ): Promise<void> => {
@@ -85,7 +85,7 @@ const markHistoricalImportDone = async (
 };
 
 // Helper function to process invoices and convert to metric imports
-const processInvoices = (
+export const processInvoices = (
   invoices: HelloTESSInvoice[],
   source: HelloTESSSourceConfig,
   timeZone: string
@@ -165,7 +165,7 @@ const processInvoices = (
 };
 
 // Function to fetch invoices for a specific date range
-const fetchInvoices = async (
+export const fetchInvoices = async (
   source: HelloTESSSourceConfig,
   dateFrom: string,
   dateUntil: string

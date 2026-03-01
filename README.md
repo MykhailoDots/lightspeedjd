@@ -25,3 +25,17 @@ sudo docker exec -it jobdone-isolated-metric-importer /bin/sh
 sudo docker compose -f docker-compose.bindella.yml down
 sudo docker compose -f docker-compose.bindella.yml down -v
 ```
+
+## Testing
+
+```bash
+# run all tests
+bun run test
+
+# generate lcov coverage report to ./coverage/lcov.info
+bun run test:coverage
+
+# validate maintained runtime coverage threshold (index/core/sources/helper/util/config)
+# excludes generated graphql files and test files
+bun run coverage:check
+```

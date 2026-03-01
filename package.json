@@ -4,7 +4,10 @@
   "type": "module",
   "scripts": {
     "start": "bun run ./src/index.ts",
-    "generate-types": "graphql-codegen --config codegen.ts"
+    "generate-types": "graphql-codegen --config codegen.ts",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage --coverage-reporter=lcov --coverage-dir coverage",
+    "coverage:check": "node ./scripts/check-coverage.mjs --file=coverage/lcov.info --min-lines=65"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^5.0.2",

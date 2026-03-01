@@ -23,24 +23,28 @@ export function getEnvVar(name: string, isOptional = false): string {
 }
 
 export function getAppConfig() {
-  const configFile = getEnvVar("JOBDONE_ORGANIZATION_NAME", true);
+  const configFile = getEnvVar("JOBDONE_ORGANIZATION_NAME", true)?.toLowerCase();
   switch (configFile) {
+    case "bindella":
     case "Bindella":
       return appConfigBindella;
+    case "fwg":
     case "FWG":
       return appConfigFWG;
+    case "hotel-monopol":
     case "Hotel Monopol":
       return appConfigHotelMonopol;
     case "seerose":
       return appConfigSeerose;
     case "damn-delicious":
       return appConfigDamnDelicious;
+    case "small-foot":
     case "small Foot":
       return appConfigSmallFoot;
     case "astro-fries":
       return appConfigAstroFries;
-    case "Remimag":
     case "remimag":
+    case "Remimag":
       return appConfigRemimag;
     case "tibits":
     case "Tibits":
@@ -91,6 +95,7 @@ export type SOURCE_TYPE =
   | "hellotess"
   | "taginet"
   | "email"
+  | "gmail"
   | "lightspeed"
   | "powerbi-sp"
   | "powerbi-delegated";
@@ -251,6 +256,28 @@ export interface EmailSourceConfig extends BaseSourceConfig {
     column: number;
     row: number;
   };
+}
+
+export interface GmailSourceConfig extends BaseSourceConfig {
+  type: "gmail";
+  username: string;
+  password: string;
+  host?: string;
+  port?: number;
+  secure?: boolean;
+  subjectFilter: string;
+  attachmentNamePattern: string;
+  dateExtractionRegex: string;
+  dateFormat: string;
+  daysPast: number;
+  skipHeader: boolean;
+  valueCell: {
+    column: number;
+    row: number;
+  };
+  aliasBaseAddress?: string;
+  orgIdSource?: "env";
+  createLabelsIfMissing?: boolean;
 }
 
 export interface PowerBIServicePrincipalSourceConfig extends BaseSourceConfig {
@@ -422,6 +449,7 @@ export type SourceConfigType =
   | HelloTESSSourceConfig
   | TagiNetSourceConfig
   | EmailSourceConfig
+  | GmailSourceConfig
   | LightspeedSourceConfig
   | PowerBIServicePrincipalSourceConfig
   | PowerBIDelegatedSourceConfig;

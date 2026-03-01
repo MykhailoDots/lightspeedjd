@@ -6,13 +6,13 @@ import { appEnvironment, type ClockSourceConfig } from "../config";
 import fs from "fs/promises";
 import path from "path";
 
-interface ClockState {
+export interface ClockState {
   lastUpdatedAt?: string;
 }
 
-const clockStateFilePath = path.resolve(process.cwd(), "clock-state.json");
+export const clockStateFilePath = path.resolve(process.cwd(), "clock-state.json");
 
-const readClockState = async (): Promise<ClockState> => {
+export const readClockState = async (): Promise<ClockState> => {
   try {
     const data = await fs.readFile(clockStateFilePath, "utf-8");
     return JSON.parse(data) as ClockState;
@@ -22,7 +22,7 @@ const readClockState = async (): Promise<ClockState> => {
   }
 };
 
-const writeClockState = async (lastUpdatedAt: string) => {
+export const writeClockState = async (lastUpdatedAt: string) => {
   const clockState: ClockState = { lastUpdatedAt };
   try {
     await fs.writeFile(clockStateFilePath, JSON.stringify(clockState, null, 2));

@@ -9,7 +9,7 @@ interface TagiNetResponse {
   view_rep_atomic_beitraege: TagiNetEntry[];
 }
 
-interface TagiNetEntry {
+export interface TagiNetEntry {
   mandant: string;
   b_von_datum: string;
   b_bis_datum: string;
@@ -59,6 +59,136 @@ export function calculateChildWeight(
   return 0.8;
 }
 
+export const buildTagiNetMetrics = (
+  entries: TagiNetEntry[],
+  source: TagiNetSourceConfig,
+  timeZone: string,
+  dateFrom: string,
+  dateTo: string
+): MetricImport[] => {
+  const metricsMap = new Map<string, number>();
+
+  for (const entry of entries) {
+    const entryStartDate = dayjs(entry.b_von_datum);
+    const entryEndDate = dayjs(entry.b_bis_datum);
+
+    if (entryEndDate.isBefore(dateFrom) || entryStartDate.isAfter(dateTo)) {
+      continue;
+    }
+
+    const costCenter = source.costCenterMapping?.[entry.mandant] || entry.mandant;
+
+    let currentDate = entryStartDate.isAfter(dateFrom)
+      ? entryStartDate
+      : dayjs(dateFrom);
+    const endDate = entryEndDate.isBefore(dateTo) ? entryEndDate : dayjs(dateTo);
+
+    while (currentDate.isSameOrBefore(endDate)) {
+      const dayJsWeekday = currentDate.day();
+      const entryWeekday = parseInt(entry.b_wochentag);
+      const adjustedDayJsWeekday = dayJsWeekday === 0 ? 7 : dayJsWeekday;
+
+      if (adjustedDayJsWeekday === entryWeekday) {
+        const isUnweighted = source.unweightedCostCenters?.includes(costCenter);
+
+        if (isUnweighted) {
+          logger.debug(
+            `[${source.name}] Using unweighted values for cost center: ${costCenter}`
+          );
+        }
+
+        const weight = isUnweighted
+          ? 1
+          : calculateChildWeight(
+              entry.k_geburtsdatum,
+              currentDate.format("YYYY-MM-DD")
+            );
+
+        const categories = [
+          {
+            name: "Morgenessen",
+            value: entry.ba_morgenessen === "1" ? weight : 0,
+          },
+          {
+            name: "Vormittag",
+            value: entry.ba_vormittag === "1" ? weight : 0,
+          },
+          {
+            name: "Mittagessen",
+            value: entry.ba_mittagessen === "1" ? weight : 0,
+          },
+          {
+            name: "Nachmittag",
+            value: entry.ba_nachmittag === "1" ? weight : 0,
+          },
+          {
+            name: "Abendessen",
+            value: entry.ba_abendessen === "1" ? weight : 0,
+          },
+        ];
+
+        for (const category of categories) {
+          if (category.value > 0) {
+            const key = `${currentDate.format("YYYY-MM-DD")}_${costCenter}_${
+              category.name
+            }`;
+            const currentValue = metricsMap.get(key) || 0;
+            metricsMap.set(key, currentValue + category.value);
+          }
+        }
+      }
+
+      currentDate = currentDate.add(1, "day");
+    }
+  }
+
+  const metricsToImport: MetricImport[] = [];
+  const categoryMetricsByDateAndCenter = new Map<string, Map<string, number>>();
+
+  for (const [key, value] of metricsMap.entries()) {
+    const [date, costCenter, category] = key.split("_");
+    const dateAndCenterKey = `${date}_${costCenter}`;
+
+    if (!categoryMetricsByDateAndCenter.has(dateAndCenterKey)) {
+      categoryMetricsByDateAndCenter.set(dateAndCenterKey, new Map<string, number>());
+    }
+
+    const categoryMap = categoryMetricsByDateAndCenter.get(dateAndCenterKey)!;
+    categoryMap.set(category, value);
+  }
+
+  for (const [dateAndCenterKey, categoryMap] of categoryMetricsByDateAndCenter.entries()) {
+    const [date, costCenter] = dateAndCenterKey.split("_");
+    const timestamp = dayjs.tz(date, timeZone).utc().toISOString();
+
+    for (const [category, value] of categoryMap.entries()) {
+      metricsToImport.push({
+        timestampCompatibleWithGranularity: timestamp,
+        costCenter,
+        metricType: "Kinder",
+        value: value.toString(),
+        metricTypeCategory: category,
+      });
+    }
+
+    if (categoryMap.size > 0) {
+      const categoryValues = Array.from(categoryMap.values());
+      const sum = categoryValues.reduce((acc, val) => acc + val, 0);
+      const average = sum / categoryMap.size;
+
+      metricsToImport.push({
+        timestampCompatibleWithGranularity: timestamp,
+        costCenter,
+        metricType: "Kinder",
+        value: average.toFixed(2),
+        metricTypeCategory: "Durchschnitt",
+      });
+    }
+  }
+
+  return metricsToImport;
+};
+
 export const importFromTagiNet = async (
   source: TagiNetSourceConfig,
   timeZone: string
@@ -96,159 +226,13 @@ export const importFromTagiNet = async (
       `[${source.name}] Retrieved ${entries.length} entries from TagiNet`
     );
 
-    // Process the data and convert to MetricImport format
-    const metricsMap = new Map<string, number>();
-
-    for (const entry of entries) {
-      // Check if the entry has a valid date range that overlaps with our query period
-      const entryStartDate = dayjs(entry.b_von_datum);
-      const entryEndDate = dayjs(entry.b_bis_datum);
-
-      // Skip if the entry's date range doesn't overlap with our query period
-      if (entryEndDate.isBefore(dateFrom) || entryStartDate.isAfter(dateTo)) {
-        continue;
-      }
-
-      // Get cost center - either map the mandant name or use directly
-      const costCenter =
-        source.costCenterMapping?.[entry.mandant] || entry.mandant;
-
-      // Process each day in the date range
-      // Use safe way to determine the start date to avoid null
-      let currentDate = entryStartDate.isAfter(dateFrom)
-        ? entryStartDate
-        : dayjs(dateFrom);
-      const endDate = entryEndDate.isBefore(dateTo)
-        ? entryEndDate
-        : dayjs(dateTo);
-
-      while (currentDate.isSameOrBefore(endDate)) {
-        // Only process entries for the current weekday
-        // b_wochentag values: 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday
-        // dayjs weekday is 0=Sunday, 1=Monday, etc.
-        const dayJsWeekday = currentDate.day();
-        const entryWeekday = parseInt(entry.b_wochentag);
-        const adjustedDayJsWeekday = dayJsWeekday === 0 ? 7 : dayJsWeekday; // Convert to 1-7 format
-
-        if (adjustedDayJsWeekday === entryWeekday) {
-          // Check if this cost center should use unweighted values
-          const isUnweighted = source.unweightedCostCenters?.includes(
-            costCenter
-          );
-
-          if (isUnweighted) {
-            logger.debug(
-              `[${source.name}] Using unweighted values for cost center: ${costCenter}`
-            );
-          }
-
-          // Calculate weight based on age or use 1 for unweighted centers
-          const weight = isUnweighted
-            ? 1
-            : calculateChildWeight(
-                entry.k_geburtsdatum,
-                currentDate.format("YYYY-MM-DD")
-              );
-
-          // Process each category/module
-          const categories = [
-            {
-              name: "Morgenessen",
-              value: entry.ba_morgenessen === "1" ? weight : 0,
-            },
-            {
-              name: "Vormittag",
-              value: entry.ba_vormittag === "1" ? weight : 0,
-            },
-            {
-              name: "Mittagessen",
-              value: entry.ba_mittagessen === "1" ? weight : 0,
-            },
-            {
-              name: "Nachmittag",
-              value: entry.ba_nachmittag === "1" ? weight : 0,
-            },
-            {
-              name: "Abendessen",
-              value: entry.ba_abendessen === "1" ? weight : 0,
-            },
-          ];
-
-          for (const category of categories) {
-            if (category.value > 0) {
-              const key = `${currentDate.format("YYYY-MM-DD")}_${costCenter}_${
-                category.name
-              }`;
-              const currentValue = metricsMap.get(key) || 0;
-              metricsMap.set(key, currentValue + category.value);
-            }
-          }
-        }
-
-        // Move to next day
-        currentDate = currentDate.add(1, "day");
-      }
-    }
-
-    // Convert the map to MetricImport array
-    const metricsToImport: MetricImport[] = [];
-
-    // Group metrics by date and cost center to calculate averages
-    const categoryMetricsByDateAndCenter = new Map<
-      string,
-      Map<string, number>
-    >();
-
-    // First populate the grouped metrics map
-    for (const [key, value] of metricsMap.entries()) {
-      const [date, costCenter, category] = key.split("_");
-      const dateAndCenterKey = `${date}_${costCenter}`;
-
-      if (!categoryMetricsByDateAndCenter.has(dateAndCenterKey)) {
-        categoryMetricsByDateAndCenter.set(
-          dateAndCenterKey,
-          new Map<string, number>()
-        );
-      }
-
-      const categoryMap = categoryMetricsByDateAndCenter.get(dateAndCenterKey)!;
-      categoryMap.set(category, value);
-    }
-
-    // Now process the grouped metrics and calculate averages
-    for (const [
-      dateAndCenterKey,
-      categoryMap,
-    ] of categoryMetricsByDateAndCenter.entries()) {
-      const [date, costCenter] = dateAndCenterKey.split("_");
-      const timestamp = dayjs.tz(date, timeZone).utc().toISOString();
-
-      // Add each category metric
-      for (const [category, value] of categoryMap.entries()) {
-        metricsToImport.push({
-          timestampCompatibleWithGranularity: timestamp,
-          costCenter,
-          metricType: "Kinder",
-          value: value.toString(),
-          metricTypeCategory: category,
-        });
-      }
-
-      // Calculate and add the average
-      if (categoryMap.size > 0) {
-        const categoryValues = Array.from(categoryMap.values());
-        const sum = categoryValues.reduce((acc, val) => acc + val, 0);
-        const average = sum / categoryMap.size;
-
-        metricsToImport.push({
-          timestampCompatibleWithGranularity: timestamp,
-          costCenter,
-          metricType: "Kinder",
-          value: average.toFixed(2),
-          metricTypeCategory: "Durchschnitt",
-        });
-      }
-    }
+    const metricsToImport = buildTagiNetMetrics(
+      entries,
+      source,
+      timeZone,
+      dateFrom,
+      dateTo
+    );
 
     logger.info(
       `[${source.name}] Successfully processed ${metricsToImport.length} metrics`
