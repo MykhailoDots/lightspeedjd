@@ -761,7 +761,7 @@ export const importFromGmail = async (
       host: source.host || "imap.gmail.com",
       port: source.port ?? 993,
       tls: source.secure ?? true,
-      tlsOptions: { rejectUnauthorized: false },
+      tlsOptions: { rejectUnauthorized: true },
     });
 
     const metricsToImport = await new Promise<MetricImport[]>((resolve, reject) => {

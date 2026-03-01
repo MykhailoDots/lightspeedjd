@@ -15,7 +15,7 @@ export const appConfigAstroFries: AppConfig = {
         name: "Umsatz",
       },
       metricTypeMappings: [],
-      costCenterMappingField: "name",
+      costCenterMappingField: "customId2",
       host: getEnvVar("GMAIL_HOST", true) || "imap.gmail.com",
       port: parseInt(getEnvVar("GMAIL_PORT", true) || "993"),
       secure: getEnvVar("GMAIL_SECURE", true)
