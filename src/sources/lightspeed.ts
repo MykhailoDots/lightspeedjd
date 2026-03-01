@@ -102,7 +102,7 @@ const sanitizeFilePart = (s: string) =>
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 
-const parseAmount = (value: unknown): number => {
+export const parseAmount = (value: unknown): number => {
   if (value === null || value === undefined) return 0;
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
@@ -114,12 +114,12 @@ const parseAmount = (value: unknown): number => {
   return 0;
 };
 
-const roundTo = (value: number, decimals: number) => {
+export const roundTo = (value: number, decimals: number) => {
   const factor = Math.pow(10, decimals);
   return Math.round((value + Number.EPSILON) * factor) / factor;
 };
 
-const fetchWithRetry = async (
+export const fetchWithRetry = async (
   sourceName: string,
   url: string,
   init: RequestInit,
@@ -185,7 +185,7 @@ const writeJsonFile = async (filePath: string, payload: unknown) => {
   await fs.writeFile(filePath, JSON.stringify(payload, null, 2), "utf-8");
 };
 
-const isTokenValid = (token: LightspeedTokenCache | null): boolean => {
+export const isTokenValid = (token: LightspeedTokenCache | null): boolean => {
   if (!token?.access_token) return false;
   if (!token.expires_at) return false;
 
@@ -195,21 +195,23 @@ const isTokenValid = (token: LightspeedTokenCache | null): boolean => {
   return expiresAt.isAfter(dayjs().add(TOKEN_EXPIRY_SAFETY_SECONDS, "second"));
 };
 
-const inferAuthVersion = (config: LightspeedSourceConfig): LightspeedAuthVersion => {
+export const inferAuthVersion = (
+  config: LightspeedSourceConfig
+): LightspeedAuthVersion => {
   if (config.authVersion) return config.authVersion;
   // Common convention: new client IDs start with "devp-v2"
   if (config.clientId?.startsWith("devp-v2")) return "v2";
   return "v1";
 };
 
-const resolveApiBaseUrl = (config: LightspeedSourceConfig): string => {
+export const resolveApiBaseUrl = (config: LightspeedSourceConfig): string => {
   if (config.apiBaseUrl) return config.apiBaseUrl.replace(/\/+$/, "");
   return config.environment === "demo"
     ? "https://api.trial.lsk.lightspeed.app"
     : "https://api.lsk.lightspeed.app";
 };
 
-const resolveAuthBaseUrl = (config: LightspeedSourceConfig): string => {
+export const resolveAuthBaseUrl = (config: LightspeedSourceConfig): string => {
   if (config.authBaseUrl) return config.authBaseUrl.replace(/\/+$/, "");
   // Default Keycloak hosts for v2; can be overridden via authBaseUrl
   return config.environment === "demo"
@@ -217,7 +219,7 @@ const resolveAuthBaseUrl = (config: LightspeedSourceConfig): string => {
     : "https://auth.lsk.lightspeed.app";
 };
 
-const getTokenCachePath = (config: LightspeedSourceConfig): string => {
+export const getTokenCachePath = (config: LightspeedSourceConfig): string => {
   if (config.tokenCachePath) return path.resolve(process.cwd(), config.tokenCachePath);
 
   const safeName = sanitizeFilePart(config.name);
@@ -225,7 +227,9 @@ const getTokenCachePath = (config: LightspeedSourceConfig): string => {
   return path.resolve(process.cwd(), `.lightspeed-token-${safeName}-${safeEnv}.json`);
 };
 
-const buildAuthorizationUrlForLogging = (config: LightspeedSourceConfig): string => {
+export const buildAuthorizationUrlForLogging = (
+  config: LightspeedSourceConfig
+): string => {
   const authVersion = inferAuthVersion(config);
   const apiBaseUrl = resolveApiBaseUrl(config);
 
@@ -501,7 +505,7 @@ const resolveBusinessLocations = async (
   return locations;
 };
 
-const resolveCostCenter = (
+export const resolveCostCenter = (
   config: LightspeedSourceConfig,
   location: BusinessLocationInfo
 ): string => {
@@ -521,21 +525,34 @@ const resolveCostCenter = (
   return idStr;
 };
 
-const getMappedMetricTypeName = (config: LightspeedSourceConfig, raw: string): string => {
+export const getMappedMetricTypeName = (
+  config: LightspeedSourceConfig,
+  raw: string
+): string => {
   const mapping = config.metricTypeMappings.find((m) => m.importName === raw);
   return mapping ? mapping.jobdoneName : raw;
 };
 
-const getEffectiveMetricTypeName = (config: LightspeedSourceConfig, output: LightspeedMetricOutput): string => {
+export const getEffectiveMetricTypeName = (
+  config: LightspeedSourceConfig,
+  output: LightspeedMetricOutput
+): string => {
   if (config.mergeMetricTypes.enabled) return config.mergeMetricTypes.name;
   return getMappedMetricTypeName(config, output.metricType);
 };
 
-const getEffectiveMetricCategory = (config: LightspeedSourceConfig, output: LightspeedMetricOutput): string => {
+export const getEffectiveMetricCategory = (
+  config: LightspeedSourceConfig,
+  output: LightspeedMetricOutput
+): string => {
   return output.metricTypeCategory || config.metricTypeCategory || "Ist";
 };
 
-const buildDateStringsRange = (timeZone: string, daysPast: number, daysFuture: number): string[] => {
+export const buildDateStringsRange = (
+  timeZone: string,
+  daysPast: number,
+  daysFuture: number
+): string[] => {
   const start = dayjs().subtract(daysPast, "day").tz(timeZone).startOf("day");
   const end = dayjs().add(daysFuture, "day").tz(timeZone).startOf("day");
 
@@ -550,7 +567,7 @@ const buildDateStringsRange = (timeZone: string, daysPast: number, daysFuture: n
   return out;
 };
 
-const computeRevenueForSales = (
+export const computeRevenueForSales = (
   sales: LightspeedSale[],
   output: LightspeedRevenueOutput
 ): number => {
@@ -601,7 +618,10 @@ const computeRevenueForSales = (
   return sum;
 };
 
-const computeCoversForSales = (sales: LightspeedSale[], _output: LightspeedCoversOutput): number => {
+export const computeCoversForSales = (
+  sales: LightspeedSale[],
+  _output: LightspeedCoversOutput
+): number => {
   // Default approach: sum nbCovers for non-cancelled SALE receipts.
   let covers = 0;
   for (const sale of sales) {
@@ -613,7 +633,7 @@ const computeCoversForSales = (sales: LightspeedSale[], _output: LightspeedCover
   return covers;
 };
 
-const computeTransactionsForSales = (
+export const computeTransactionsForSales = (
   sales: LightspeedSale[],
   output: LightspeedTransactionsOutput
 ): number => {

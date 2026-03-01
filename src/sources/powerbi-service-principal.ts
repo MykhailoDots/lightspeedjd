@@ -6,7 +6,7 @@ import type { MetricImport } from "..";
 
 const POWER_BI_SCOPE = "https://analysis.windows.net/powerbi/api/.default";
 
-const getAccessToken = async (
+export const getAccessToken = async (
   config: PowerBIServicePrincipalSourceConfig
 ): Promise<string> => {
   const app = new ConfidentialClientApplication({
@@ -26,7 +26,10 @@ const getAccessToken = async (
   return result.accessToken;
 };
 
-const buildDaxQuery = (config: PowerBIServicePrincipalSourceConfig, timeZone: string) => {
+export const buildDaxQuery = (
+  config: PowerBIServicePrincipalSourceConfig,
+  timeZone: string
+) => {
   const fromDate = dayjs()
     .subtract(config.daysPast, "day")
     .tz(timeZone)

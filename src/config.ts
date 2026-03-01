@@ -95,6 +95,7 @@ export type SOURCE_TYPE =
   | "hellotess"
   | "taginet"
   | "email"
+  | "gmail"
   | "lightspeed"
   | "powerbi-sp"
   | "powerbi-delegated";
@@ -255,6 +256,28 @@ export interface EmailSourceConfig extends BaseSourceConfig {
     column: number;
     row: number;
   };
+}
+
+export interface GmailSourceConfig extends BaseSourceConfig {
+  type: "gmail";
+  username: string;
+  password: string;
+  host?: string;
+  port?: number;
+  secure?: boolean;
+  subjectFilter: string;
+  attachmentNamePattern: string;
+  dateExtractionRegex: string;
+  dateFormat: string;
+  daysPast: number;
+  skipHeader: boolean;
+  valueCell: {
+    column: number;
+    row: number;
+  };
+  aliasBaseAddress?: string;
+  orgIdSource?: "env";
+  createLabelsIfMissing?: boolean;
 }
 
 export interface PowerBIServicePrincipalSourceConfig extends BaseSourceConfig {
@@ -426,6 +449,7 @@ export type SourceConfigType =
   | HelloTESSSourceConfig
   | TagiNetSourceConfig
   | EmailSourceConfig
+  | GmailSourceConfig
   | LightspeedSourceConfig
   | PowerBIServicePrincipalSourceConfig
   | PowerBIDelegatedSourceConfig;

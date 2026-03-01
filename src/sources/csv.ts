@@ -16,7 +16,7 @@ export interface MetricCSVImport {
   value: string;
 }
 
-const applyTransformations = (
+export const applyTransformations = (
   data: any[],
   transformations: TransformColumn[],
   sourceName: string
@@ -60,7 +60,7 @@ const applyTransformations = (
   });
 };
 
-const parseCsv = async (
+export const parseCsv = async (
   config: CSVSourceConfig
 ): Promise<MetricCSVImport[]> => {
   try {

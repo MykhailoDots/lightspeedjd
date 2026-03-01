@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test";
-import { calculateChildWeight } from "./taginet";
+import { buildTagiNetMetrics, calculateChildWeight } from "./taginet";
+import type { TagiNetSourceConfig } from "../config";
 
 describe("calculateChildWeight", () => {
   it("should return 1.5 for children under 18 months", () => {
@@ -90,5 +91,62 @@ describe("calculateChildWeight", () => {
     
     const bookingDate2 = "2021-09-01"; // Over 18 months
     expect(calculateChildWeight(birthDate, bookingDate2)).toBe(1.0);
+  });
+});
+
+describe("buildTagiNetMetrics", () => {
+  const source: TagiNetSourceConfig = {
+    name: "taginet-source",
+    type: "taginet",
+    enabled: true,
+    ignoredMissingCostCenters: [],
+    autoCreateMetricType: false,
+    mergeMetricTypes: { enabled: false, name: "Kinder" },
+    metricTypeMappings: [],
+    metricTypeCategory: "Ist",
+    costCenterMappingField: "name",
+    apiUrl: "https://example.com",
+    username: "u",
+    password: "p",
+    daysPast: 1,
+    daysFuture: 0,
+    costCenterMapping: { MandantA: "CC-A" },
+  };
+
+  it("aggregates category values and average per day/cost center", () => {
+    const metrics = buildTagiNetMetrics(
+      [
+        {
+          mandant: "MandantA",
+          b_von_datum: "2025-01-06",
+          b_bis_datum: "2025-01-06",
+          k_name: "Kid",
+          k_vorname: "A",
+          k_geburtsdatum: "2020-01-01",
+          b_von_zeit: "",
+          b_bis_zeit: "",
+          b_wochentag: "1",
+          ba_morgenessen: "1",
+          ba_vormittag: "0",
+          ba_mittagessen: "1",
+          ba_nachmittag: "0",
+          ba_abendessen: "0",
+          view_rep_atomic_beitraege_fld_id: "1",
+          view_rep_atomic_kinder_fld_id: "1",
+          view_rep_atomic_beitraege_block_fld_id: "1",
+          view_rep_atomic_belegungsarten_fld_id: "1",
+        },
+      ],
+      source,
+      "Europe/Zurich",
+      "2025-01-06",
+      "2025-01-06"
+    );
+
+    const categories = metrics.map((m) => m.metricTypeCategory).sort();
+    expect(categories).toContain("Morgenessen");
+    expect(categories).toContain("Mittagessen");
+    expect(categories).toContain("Durchschnitt");
+    expect(metrics.every((m) => m.costCenter === "CC-A")).toBe(true);
   });
 });

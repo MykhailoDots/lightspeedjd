@@ -9,7 +9,10 @@ import type { MetricImport } from "..";
 const DEFAULT_SCOPES = ["https://analysis.windows.net/powerbi/api/Dataset.Read.All"];
 const DEFAULT_CACHE_PATH = ".msal-pbi-cache.json";
 
-const buildDaxQuery = (config: PowerBIDelegatedSourceConfig, timeZone: string) => {
+export const buildDaxQuery = (
+  config: PowerBIDelegatedSourceConfig,
+  timeZone: string
+) => {
   const fromDate = dayjs()
     .subtract(config.daysPast, "day")
     .tz(timeZone)
@@ -26,7 +29,7 @@ const buildDaxQuery = (config: PowerBIDelegatedSourceConfig, timeZone: string) =
     .replaceAll("{toDate}", toDate);
 };
 
-const loadCache = (pca: PublicClientApplication, path: string) => {
+export const loadCache = (pca: PublicClientApplication, path: string) => {
   if (fs.existsSync(path)) {
     const cache = fs.readFileSync(path, "utf8");
     if (cache) {
@@ -36,13 +39,13 @@ const loadCache = (pca: PublicClientApplication, path: string) => {
   }
 };
 
-const saveCache = (pca: PublicClientApplication, path: string) => {
+export const saveCache = (pca: PublicClientApplication, path: string) => {
   const cache = pca.getTokenCache().serialize();
   fs.writeFileSync(path, cache, "utf8");
   logger.info(`[${path}] Saved MSAL cache`);
 };
 
-const acquireDelegatedToken = async (
+export const acquireDelegatedToken = async (
   config: PowerBIDelegatedSourceConfig
 ): Promise<{ accessToken: string; account: AccountInfo | null }> => {
   const pca = new PublicClientApplication({
