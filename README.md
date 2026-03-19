@@ -39,3 +39,8 @@ bun run test:coverage
 # excludes generated graphql files and test files
 bun run coverage:check
 ```
+
+## Internal Docs
+
+- Gmail onboarding and customer communication guide:
+  [INTERNAL_GMAIL_CUSTOMER_GUIDE.md](./INTERNAL_GMAIL_CUSTOMER_GUIDE.md)

@@ -116,6 +116,7 @@ export const importFromPowerBIDelegated = async (
   logger.info(
     `[${config.name}] Starting Power BI fetch (delegated/device code); tenant=${config.tenantId}, dataset=${config.datasetId}, group=${config.groupId ?? "(myorg)"}`
   );
+  logger.info(`[${config.name}] Full DAX query:\n${daxQuery}`);
 
   const { accessToken, account } = await acquireDelegatedToken(config);
   logger.info(

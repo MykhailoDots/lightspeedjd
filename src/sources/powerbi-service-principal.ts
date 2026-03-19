@@ -54,6 +54,7 @@ export const importFromPowerBIServicePrincipal = async (
   logger.info(
     `[${config.name}] Starting Power BI fetch (service principal); tenant=${config.tenantId}, dataset=${config.datasetId}, group=${config.groupId ?? "(myorg)"}`
   );
+  logger.info(`[${config.name}] Full DAX query:\n${daxQuery}`);
 
   logger.info(`[${config.name}] Acquiring Power BI token...`);
   const accessToken = await getAccessToken(config);
