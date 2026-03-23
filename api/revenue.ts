@@ -578,6 +578,15 @@ const computeRowFromSales = (
   };
 };
 
+const extractEarliestOperationalDate = (message: string): string | null => {
+  if (!message.includes("not operational on the provided date")) return null;
+  const match = message.match(/after:\s*([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:+-]+)/i);
+  if (!match?.[1]) return null;
+  const parsed = dayjs(match[1]);
+  if (!parsed.isValid()) return null;
+  return parsed.format("YYYY-MM-DD");
+};
+
 const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueResponsePayload> => {
   const businessLocationIds = parseBusinessLocationIds();
   const primaryBusinessLocationId = businessLocationIds[0] ?? null;
@@ -592,18 +601,37 @@ const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueRespo
   const fetchDaysPast = Math.max(daysPast, minimumDaysPastForAutoPeriods);
   const fetchDaysFuture = daysFuture;
 
-  const fetchRangeStart = dayjs().tz(timeZone).subtract(fetchDaysPast, "day").format("YYYY-MM-DD");
-  const fetchRangeEnd = dayjs().tz(timeZone).add(fetchDaysFuture, "day").format("YYYY-MM-DD");
+  const fetchRangeStart = dayjs(anchorDate).subtract(fetchDaysPast, "day").format("YYYY-MM-DD");
+  const fetchRangeEnd = dayjs(anchorDate).add(fetchDaysFuture, "day").format("YYYY-MM-DD");
 
   const datesToFetch = buildDateList(fetchRangeStart, fetchRangeEnd);
   const accessToken = await getAccessToken();
   const nextStartByDate = new Map<string, string>();
+  const earliestOperationalDateByLocation = new Map<number, string>();
 
   const rows: RevenueDetailRow[] = [];
 
   for (const businessLocationId of businessLocationIds) {
     for (const date of datesToFetch) {
-      const daily = await fetchSalesDaily(accessToken, businessLocationId, date);
+      const earliestOperationalDate = earliestOperationalDateByLocation.get(businessLocationId);
+      if (earliestOperationalDate && date < earliestOperationalDate) {
+        rows.push(computeRowFromSales(date, businessLocationId, []));
+        continue;
+      }
+
+      let daily: SalesDailyDto;
+      try {
+        daily = await fetchSalesDaily(accessToken, businessLocationId, date);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const earliestDate = extractEarliestOperationalDate(message);
+        if (earliestDate) {
+          earliestOperationalDateByLocation.set(businessLocationId, earliestDate);
+          rows.push(computeRowFromSales(date, businessLocationId, []));
+          continue;
+        }
+        throw error;
+      }
       if (
         businessLocationId === primaryBusinessLocationId &&
         typeof daily.nextStartOfDayAsIso8601 === "string" &&
@@ -624,7 +652,8 @@ const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueRespo
 
   const itemsInRequestedRange = rows.filter((row) => row.date >= rangeStart && row.date <= rangeEnd);
   const requestedSummary = aggregateRevenueRows(itemsInRequestedRange);
-  const uniqueDaysInRange = new Set(itemsInRequestedRange.map((row) => row.date)).size;
+  const uniqueDaysInRange =
+    dayjs(rangeEnd).diff(dayjs(rangeStart), "day") + 1;
   const averageDailyNetRevenue =
     uniqueDaysInRange > 0
       ? Number((requestedSummary.totalNetRevenue / uniqueDaysInRange).toFixed(2))
