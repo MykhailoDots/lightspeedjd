@@ -109,6 +109,9 @@ interface RevenueResponsePayload extends RevenueAggregateSummary {
     fetchEndDate: string;
   };
   rows: number;
+  averageDailyDays: number;
+  averageDailyNetRevenue: number | null;
+  averageDailyGrossRevenue: number | null;
   day: RevenueWindowSummary;
   today: RevenueWindowSummary;
   week: RevenueWindowSummary;
@@ -609,6 +612,15 @@ const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueRespo
 
   const itemsInRequestedRange = rows.filter((row) => row.date >= rangeStart && row.date <= rangeEnd);
   const requestedSummary = aggregateRevenueRows(itemsInRequestedRange);
+  const uniqueDaysInRange = new Set(itemsInRequestedRange.map((row) => row.date)).size;
+  const averageDailyNetRevenue =
+    uniqueDaysInRange > 0
+      ? Number((requestedSummary.totalNetRevenue / uniqueDaysInRange).toFixed(2))
+      : null;
+  const averageDailyGrossRevenue =
+    uniqueDaysInRange > 0
+      ? Number((requestedSummary.totalGrossRevenue / uniqueDaysInRange).toFixed(2))
+      : null;
   const businessDate = rangeEnd;
   const businessDatePrev = dayjs(businessDate).subtract(1, "day").format("YYYY-MM-DD");
   const businessDayStartIso = nextStartByDate.get(businessDatePrev) || null;
@@ -643,6 +655,9 @@ const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueRespo
       fetchEndDate: fetchRangeEnd,
     },
     rows: itemsInRequestedRange.length,
+    averageDailyDays: uniqueDaysInRange,
+    averageDailyNetRevenue,
+    averageDailyGrossRevenue,
     totalNetRevenue: requestedSummary.totalNetRevenue,
     totalGrossRevenue: requestedSummary.totalGrossRevenue,
     totalGrossMinusNet: requestedSummary.totalGrossMinusNet,

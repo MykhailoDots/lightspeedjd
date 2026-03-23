@@ -881,6 +881,12 @@
             <div class="small" id="avgCoversTx">Covers/tx: -</div>
           </div>
           <div class="card">
+            <div class="label">Avg Daily Net</div>
+            <div class="value" id="avgDailyNet">-</div>
+            <div class="small" id="avgDailyGross">Gross/day: -</div>
+            <div class="small" id="avgDailyDays">Days: -</div>
+          </div>
+          <div class="card">
             <div class="label">Business Day Net</div>
             <div class="value" id="dayNet">-</div>
             <div class="small" id="dayDate">Date: -</div>
@@ -1159,6 +1165,9 @@
           $("avgGrossTx").textContent = "Avg gross/tx: " + val(data.averageGrossPerTransaction);
           $("avgNetCover").textContent = "Avg net/cover: " + val(data.averageNetPerCover);
           $("avgGrossCover").textContent = "Avg gross/cover: " + val(data.averageGrossPerCover);
+          $("avgDailyNet").textContent = val(data.averageDailyNetRevenue);
+          $("avgDailyGross").textContent = "Gross/day: " + val(data.averageDailyGrossRevenue);
+          $("avgDailyDays").textContent = "Days: " + (data.averageDailyDays ?? "-");
           const dayData = data.day || data.today || null;
           $("dayNet").textContent = fmt(dayData?.totalNetRevenue);
           $("dayGross").textContent = fmt(dayData?.totalGrossRevenue);
