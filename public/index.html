@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lightspeed JD</title>
+    <style>
+      :root {
+        --bg: #f5f8ff;
+        --card: #ffffff;
+        --text: #0f1f49;
+        --muted: #5a6b95;
+        --brand: #2e5de6;
+        --brand-dark: #244ab6;
+        --border: #dfe7ff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: "Manrope", "Segoe UI", system-ui, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(1200px 500px at 90% -10%, rgba(46, 93, 230, 0.15), transparent 60%),
+          radial-gradient(900px 400px at -10% 110%, rgba(49, 178, 221, 0.16), transparent 55%),
+          var(--bg);
+        padding: 20px;
+      }
+
+      .card {
+        width: min(760px, 100%);
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: 0 20px 50px rgba(21, 45, 120, 0.1);
+        padding: 28px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 32px;
+        line-height: 1.1;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 16px;
+      }
+
+      .actions {
+        margin-top: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 14px;
+        padding: 10px 14px;
+      }
+
+      .btn.primary {
+        background: var(--brand);
+        color: #fff;
+      }
+
+      .btn.primary:hover {
+        background: var(--brand-dark);
+      }
+
+      .btn.secondary {
+        border-color: var(--border);
+        color: var(--text);
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Lightspeed JD</h1>
+      <p>
+        Repository is connected to Vercel and deployed successfully.
+        For full Lightspeed live revenue console, run the local read-only server.
+      </p>
+      <div class="actions">
+        <a class="btn primary" href="https://github.com/MykhailoDots/lightspeedjd" target="_blank" rel="noreferrer">Open GitHub Repo</a>
+        <a class="btn secondary" href="https://lightspeedjd.vercel.app" target="_blank" rel="noreferrer">Refresh Production URL</a>
+      </div>
+    </main>
+  </body>
+  </html>
