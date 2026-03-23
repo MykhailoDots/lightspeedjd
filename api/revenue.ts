@@ -113,6 +113,10 @@ interface RevenueResponsePayload extends RevenueAggregateSummary {
   averageDailyDays: number;
   averageDailyNetRevenue: number | null;
   averageDailyGrossRevenue: number | null;
+  averageDailyNetRevenue7d: number | null;
+  averageDailyGrossRevenue7d: number | null;
+  averageDailyNetRevenue30d: number | null;
+  averageDailyGrossRevenue30d: number | null;
   day: RevenueWindowSummary;
   today: RevenueWindowSummary;
   week: RevenueWindowSummary;
@@ -680,6 +684,10 @@ const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueRespo
     dayjs(rangeEnd).subtract(29, "day").format("YYYY-MM-DD"),
     rangeEnd
   );
+  const averageDailyNetRevenue7d = Number((weekSummary.totalNetRevenue / 7).toFixed(2));
+  const averageDailyGrossRevenue7d = Number((weekSummary.totalGrossRevenue / 7).toFixed(2));
+  const averageDailyNetRevenue30d = Number((monthSummary.totalNetRevenue / 30).toFixed(2));
+  const averageDailyGrossRevenue30d = Number((monthSummary.totalGrossRevenue / 30).toFixed(2));
 
   return {
     timeZone,
@@ -700,6 +708,10 @@ const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueRespo
     averageDailyDays: uniqueDaysInRange,
     averageDailyNetRevenue,
     averageDailyGrossRevenue,
+    averageDailyNetRevenue7d,
+    averageDailyGrossRevenue7d,
+    averageDailyNetRevenue30d,
+    averageDailyGrossRevenue30d,
     totalNetRevenue: requestedSummary.totalNetRevenue,
     totalGrossRevenue: requestedSummary.totalGrossRevenue,
     totalGrossMinusNet: requestedSummary.totalGrossMinusNet,
