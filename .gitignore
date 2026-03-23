@@ -183,3 +183,5 @@ cache
 # Auth token caches
 .msal-pbi-cache.json
 .lightspeed-token-*.json
+.lightspeed-web.pid
+.vercel
