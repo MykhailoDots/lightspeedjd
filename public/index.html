@@ -522,6 +522,22 @@
         color: hsl(var(--muted-foreground));
       }
 
+      .card .small.trend {
+        font-weight: 800;
+      }
+
+      .card .small.trend.up {
+        color: #0f8a4b;
+      }
+
+      .card .small.trend.down {
+        color: #c0392b;
+      }
+
+      .card .small.trend.equal {
+        color: hsl(var(--muted-foreground));
+      }
+
       .meta {
         margin-top: 12px;
         display: flex;
@@ -944,6 +960,7 @@
             <div class="label">Business Day Net</div>
             <div class="value" id="dayNet">-</div>
             <div class="small" id="dayDate">Date: -</div>
+            <div class="small trend equal" id="dayTrend">Trend vs 7d avg: -</div>
           </div>
           <div class="card">
             <div class="label">Business Day Gross</div>
@@ -1253,6 +1270,27 @@
           const dayData = data.day || data.today || null;
           $("dayNet").textContent = fmt(dayData?.totalNetRevenue);
           $("dayGross").textContent = fmt(dayData?.totalGrossRevenue);
+          const dayTrendEl = $("dayTrend");
+          if (dayTrendEl) {
+            const dayNetValue = Number(dayData?.totalNetRevenue);
+            const avg7Value = Number(data.averageDailyNetRevenue7d);
+            dayTrendEl.className = "small trend equal";
+            if (Number.isFinite(dayNetValue) && Number.isFinite(avg7Value)) {
+              const delta = Number((dayNetValue - avg7Value).toFixed(2));
+              if (Math.abs(delta) < 0.01) {
+                dayTrendEl.textContent = "→ Equal to 7d avg";
+                dayTrendEl.className = "small trend equal";
+              } else if (delta > 0) {
+                dayTrendEl.textContent = "↑ Above 7d avg by " + fmt(delta);
+                dayTrendEl.className = "small trend up";
+              } else {
+                dayTrendEl.textContent = "↓ Below 7d avg by " + fmt(Math.abs(delta));
+                dayTrendEl.className = "small trend down";
+              }
+            } else {
+              dayTrendEl.textContent = "Trend vs 7d avg: -";
+            }
+          }
           const businessDate = data.businessDayWindow?.businessDate || dayData?.startDate || "-";
           $("dayDate").textContent = "Business date: " + businessDate;
           const hasBusinessWindow =
