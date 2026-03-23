@@ -101,6 +101,7 @@ interface RevenueResponsePayload extends RevenueAggregateSummary {
   query: {
     daysPast: number;
     daysFuture: number;
+    businessDate: string;
     startDate: string;
     endDate: string;
     fetchDaysPast: number;
@@ -131,6 +132,7 @@ interface RevenueResponsePayload extends RevenueAggregateSummary {
 interface NormalizedRevenueQuery {
   daysPast: number;
   daysFuture: number;
+  businessDate: string | null;
   skipIncompleteDays: boolean;
 }
 
@@ -172,6 +174,14 @@ const parseNumber = (value: string | null | undefined, fallback: number): number
 
 const clampNumber = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
+
+const normalizeBusinessDate = (value: string | undefined): string | null => {
+  if (!value) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = dayjs(value);
+  if (!parsed.isValid()) return null;
+  return parsed.format("YYYY-MM-DD");
+};
 
 const getRequiredEnv = (name: string): string => {
   const value = process.env[name];
@@ -233,10 +243,12 @@ const normalizeRevenueQuery = (req: ApiRequestLike): NormalizedRevenueQuery => {
     getQueryValue(req, "skipIncompleteDays") || process.env.LSK_SKIP_INCOMPLETE_DAYS,
     false
   );
+  const businessDate = normalizeBusinessDate(getQueryValue(req, "businessDate"));
 
   return {
     daysPast: clampNumber(Math.trunc(daysPastRaw), 0, 365),
     daysFuture: clampNumber(Math.trunc(daysFutureRaw), 0, 30),
+    businessDate,
     skipIncompleteDays,
   };
 };
@@ -570,11 +582,11 @@ const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueRespo
   const businessLocationIds = parseBusinessLocationIds();
   const primaryBusinessLocationId = businessLocationIds[0] ?? null;
   const timeZone = getTimeZone();
-  const { daysPast, daysFuture, skipIncompleteDays } = query;
+  const { daysPast, daysFuture, skipIncompleteDays, businessDate } = query;
 
-  const rangeStart = dayjs().tz(timeZone).subtract(daysPast, "day").format("YYYY-MM-DD");
-  const rangeEnd = dayjs().tz(timeZone).add(daysFuture, "day").format("YYYY-MM-DD");
-  const todayDate = dayjs().tz(timeZone).format("YYYY-MM-DD");
+  const anchorDate = businessDate || dayjs().tz(timeZone).format("YYYY-MM-DD");
+  const rangeStart = dayjs(anchorDate).subtract(daysPast, "day").format("YYYY-MM-DD");
+  const rangeEnd = dayjs(anchorDate).add(daysFuture, "day").format("YYYY-MM-DD");
 
   const minimumDaysPastForAutoPeriods = 30;
   const fetchDaysPast = Math.max(daysPast, minimumDaysPastForAutoPeriods);
@@ -621,23 +633,23 @@ const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueRespo
     uniqueDaysInRange > 0
       ? Number((requestedSummary.totalGrossRevenue / uniqueDaysInRange).toFixed(2))
       : null;
-  const businessDate = rangeEnd;
-  const businessDatePrev = dayjs(businessDate).subtract(1, "day").format("YYYY-MM-DD");
+  const businessDateForWindow = rangeEnd;
+  const businessDatePrev = dayjs(businessDateForWindow).subtract(1, "day").format("YYYY-MM-DD");
   const businessDayStartIso = nextStartByDate.get(businessDatePrev) || null;
-  const businessDayEndIso = nextStartByDate.get(businessDate) || null;
+  const businessDayEndIso = nextStartByDate.get(businessDateForWindow) || null;
   const formatLocal = (iso: string | null): string | null =>
     iso ? dayjs(iso).tz(timeZone).format("YYYY-MM-DD HH:mm") : null;
-  const daySummary = summarizeWindowRows(rows, businessDate, businessDate);
+  const daySummary = summarizeWindowRows(rows, businessDateForWindow, businessDateForWindow);
 
   const weekSummary = summarizeWindowRows(
     rows,
-    dayjs().tz(timeZone).subtract(6, "day").format("YYYY-MM-DD"),
-    todayDate
+    dayjs(rangeEnd).subtract(6, "day").format("YYYY-MM-DD"),
+    rangeEnd
   );
   const monthSummary = summarizeWindowRows(
     rows,
-    dayjs().tz(timeZone).subtract(29, "day").format("YYYY-MM-DD"),
-    todayDate
+    dayjs(rangeEnd).subtract(29, "day").format("YYYY-MM-DD"),
+    rangeEnd
   );
 
   return {
@@ -647,6 +659,7 @@ const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueRespo
     query: {
       daysPast,
       daysFuture,
+      businessDate: anchorDate,
       startDate: rangeStart,
       endDate: rangeEnd,
       fetchDaysPast,
@@ -674,7 +687,7 @@ const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueRespo
     week: weekSummary,
     month: monthSummary,
     businessDayWindow: {
-      businessDate,
+      businessDate: businessDateForWindow,
       basedOnBusinessLocationId: primaryBusinessLocationId,
       startIso: businessDayStartIso,
       endIso: businessDayEndIso,
@@ -693,7 +706,9 @@ const pruneCache = (nowMs: number) => {
 };
 
 const getPayloadWithCache = async (query: NormalizedRevenueQuery): Promise<RevenueResponsePayload> => {
-  const cacheKey = `${query.daysPast}|${query.daysFuture}|${query.skipIncompleteDays ? 1 : 0}`;
+  const cacheKey = `${query.businessDate || "-"}|${query.daysPast}|${query.daysFuture}|${
+    query.skipIncompleteDays ? 1 : 0
+  }`;
   const nowMs = Date.now();
   const cacheTtlMs = getCacheTtlMs();
 
