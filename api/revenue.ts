@@ -108,6 +108,7 @@ interface RevenueResponsePayload extends RevenueAggregateSummary {
     fetchEndDate: string;
   };
   rows: number;
+  today: RevenueWindowSummary;
   week: RevenueWindowSummary;
   month: RevenueWindowSummary;
   skipIncompleteDays: boolean;
@@ -595,6 +596,7 @@ const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueRespo
     dayjs().tz(timeZone).subtract(6, "day").format("YYYY-MM-DD"),
     todayDate
   );
+  const todaySummary = summarizeWindowRows(rows, todayDate, todayDate);
   const monthSummary = summarizeWindowRows(
     rows,
     dayjs().tz(timeZone).subtract(29, "day").format("YYYY-MM-DD"),
@@ -627,6 +629,7 @@ const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueRespo
     averageCoversPerTransaction: requestedSummary.averageCoversPerTransaction,
     averageNetPerCover: requestedSummary.averageNetPerCover,
     averageGrossPerCover: requestedSummary.averageGrossPerCover,
+    today: todaySummary,
     week: weekSummary,
     month: monthSummary,
     skipIncompleteDays,

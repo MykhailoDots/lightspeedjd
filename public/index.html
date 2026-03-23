@@ -229,6 +229,21 @@
         font-size: 14px;
       }
 
+      .note-banner {
+        margin-top: 10px;
+        border: 1px solid hsl(var(--border));
+        border-radius: calc(var(--radius) - 2px);
+        background: linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted) / 0.42));
+        color: hsl(var(--muted-foreground));
+        font-size: 12px;
+        line-height: 1.5;
+        padding: 10px 12px;
+      }
+
+      .note-banner strong {
+        color: hsl(var(--foreground));
+      }
+
       .tag {
         display: inline-flex;
         align-items: center;
@@ -806,6 +821,12 @@
           <div class="tag">Read-only / No JobDone writes</div>
         </div>
         <p class="subtitle">Daily finance details plus auto-calculated net/gross for last 7 and 30 days.</p>
+        <div class="note-banner">
+          <strong>Note!</strong>
+          Business day values are shown in <span id="noteTz">-</span>.
+          Default working-day window: <span id="noteWindow">-</span>.
+          Lightspeed business-day rollover may differ by POS setup.
+        </div>
 
         <div class="revenue-top">
           <div class="revenue-top-card net">
@@ -857,6 +878,16 @@
             <div class="label">Covers</div>
             <div class="value" id="totalCovers">-</div>
             <div class="small" id="avgCoversTx">Covers/tx: -</div>
+          </div>
+          <div class="card">
+            <div class="label">Business Day Net</div>
+            <div class="value" id="dayNet">-</div>
+            <div class="small" id="dayDate">Date: -</div>
+          </div>
+          <div class="card">
+            <div class="label">Business Day Gross</div>
+            <div class="value" id="dayGross">-</div>
+            <div class="small" id="dayWindow">Window: -</div>
           </div>
           <div class="card">
             <div class="label">Last 7 Days</div>
@@ -1127,6 +1158,13 @@
           $("avgGrossTx").textContent = "Avg gross/tx: " + val(data.averageGrossPerTransaction);
           $("avgNetCover").textContent = "Avg net/cover: " + val(data.averageNetPerCover);
           $("avgGrossCover").textContent = "Avg gross/cover: " + val(data.averageGrossPerCover);
+          $("dayNet").textContent = fmt(data.today?.totalNetRevenue);
+          $("dayGross").textContent = fmt(data.today?.totalGrossRevenue);
+          $("dayDate").textContent = "Date: " + (data.today?.startDate || "-");
+          const dayWindowText = "00:00 .. 23:59 (" + (data.timeZone || "-") + ")";
+          $("dayWindow").textContent = "Window: " + dayWindowText;
+          $("noteTz").textContent = data.timeZone || "-";
+          $("noteWindow").textContent = dayWindowText;
           $("weekNet").textContent = fmt(data.week?.totalNetRevenue);
           $("weekGross").textContent = "Gross: " + val(data.week?.totalGrossRevenue);
           $("weekRange").textContent = "Range: " + (data.week?.startDate || "-") + " .. " + (data.week?.endDate || "-");
