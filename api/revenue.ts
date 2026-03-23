@@ -44,6 +44,7 @@ interface Sale {
 interface SalesDailyDto {
   sales?: Sale[];
   dataComplete?: boolean;
+  nextStartOfDayAsIso8601?: string;
 }
 
 interface TokenCache {
@@ -108,9 +109,18 @@ interface RevenueResponsePayload extends RevenueAggregateSummary {
     fetchEndDate: string;
   };
   rows: number;
+  day: RevenueWindowSummary;
   today: RevenueWindowSummary;
   week: RevenueWindowSummary;
   month: RevenueWindowSummary;
+  businessDayWindow: {
+    businessDate: string;
+    basedOnBusinessLocationId: number | null;
+    startIso: string | null;
+    endIso: string | null;
+    startLocal: string | null;
+    endLocal: string | null;
+  };
   skipIncompleteDays: boolean;
   items: RevenueDetailRow[];
 }
@@ -555,6 +565,7 @@ const computeRowFromSales = (
 
 const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueResponsePayload> => {
   const businessLocationIds = parseBusinessLocationIds();
+  const primaryBusinessLocationId = businessLocationIds[0] ?? null;
   const timeZone = getTimeZone();
   const { daysPast, daysFuture, skipIncompleteDays } = query;
 
@@ -571,12 +582,20 @@ const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueRespo
 
   const datesToFetch = buildDateList(fetchRangeStart, fetchRangeEnd);
   const accessToken = await getAccessToken();
+  const nextStartByDate = new Map<string, string>();
 
   const rows: RevenueDetailRow[] = [];
 
   for (const businessLocationId of businessLocationIds) {
     for (const date of datesToFetch) {
       const daily = await fetchSalesDaily(accessToken, businessLocationId, date);
+      if (
+        businessLocationId === primaryBusinessLocationId &&
+        typeof daily.nextStartOfDayAsIso8601 === "string" &&
+        daily.nextStartOfDayAsIso8601.trim().length > 0
+      ) {
+        nextStartByDate.set(date, daily.nextStartOfDayAsIso8601);
+      }
       if (skipIncompleteDays && daily.dataComplete === false) {
         continue;
       }
@@ -590,13 +609,19 @@ const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueRespo
 
   const itemsInRequestedRange = rows.filter((row) => row.date >= rangeStart && row.date <= rangeEnd);
   const requestedSummary = aggregateRevenueRows(itemsInRequestedRange);
+  const businessDate = rangeEnd;
+  const businessDatePrev = dayjs(businessDate).subtract(1, "day").format("YYYY-MM-DD");
+  const businessDayStartIso = nextStartByDate.get(businessDatePrev) || null;
+  const businessDayEndIso = nextStartByDate.get(businessDate) || null;
+  const formatLocal = (iso: string | null): string | null =>
+    iso ? dayjs(iso).tz(timeZone).format("YYYY-MM-DD HH:mm") : null;
+  const daySummary = summarizeWindowRows(rows, businessDate, businessDate);
 
   const weekSummary = summarizeWindowRows(
     rows,
     dayjs().tz(timeZone).subtract(6, "day").format("YYYY-MM-DD"),
     todayDate
   );
-  const todaySummary = summarizeWindowRows(rows, todayDate, todayDate);
   const monthSummary = summarizeWindowRows(
     rows,
     dayjs().tz(timeZone).subtract(29, "day").format("YYYY-MM-DD"),
@@ -629,9 +654,18 @@ const buildPayload = async (query: NormalizedRevenueQuery): Promise<RevenueRespo
     averageCoversPerTransaction: requestedSummary.averageCoversPerTransaction,
     averageNetPerCover: requestedSummary.averageNetPerCover,
     averageGrossPerCover: requestedSummary.averageGrossPerCover,
-    today: todaySummary,
+    day: daySummary,
+    today: daySummary,
     week: weekSummary,
     month: monthSummary,
+    businessDayWindow: {
+      businessDate,
+      basedOnBusinessLocationId: primaryBusinessLocationId,
+      startIso: businessDayStartIso,
+      endIso: businessDayEndIso,
+      startLocal: formatLocal(businessDayStartIso),
+      endLocal: formatLocal(businessDayEndIso),
+    },
     skipIncompleteDays,
     items: itemsInRequestedRange,
   };

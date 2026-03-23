@@ -824,8 +824,9 @@
         <div class="note-banner">
           <strong>Note!</strong>
           Business day values are shown in <span id="noteTz">-</span>.
-          Default working-day window: <span id="noteWindow">-</span>.
-          Lightspeed business-day rollover may differ by POS setup.
+          Window source: <span id="noteSource">-</span>.
+          Business-day window: <span id="noteWindow">-</span>.
+          This follows Lightspeed business-day rollover settings.
         </div>
 
         <div class="revenue-top">
@@ -1158,12 +1159,21 @@
           $("avgGrossTx").textContent = "Avg gross/tx: " + val(data.averageGrossPerTransaction);
           $("avgNetCover").textContent = "Avg net/cover: " + val(data.averageNetPerCover);
           $("avgGrossCover").textContent = "Avg gross/cover: " + val(data.averageGrossPerCover);
-          $("dayNet").textContent = fmt(data.today?.totalNetRevenue);
-          $("dayGross").textContent = fmt(data.today?.totalGrossRevenue);
-          $("dayDate").textContent = "Date: " + (data.today?.startDate || "-");
-          const dayWindowText = "00:00 .. 23:59 (" + (data.timeZone || "-") + ")";
+          const dayData = data.day || data.today || null;
+          $("dayNet").textContent = fmt(dayData?.totalNetRevenue);
+          $("dayGross").textContent = fmt(dayData?.totalGrossRevenue);
+          const businessDate = data.businessDayWindow?.businessDate || dayData?.startDate || "-";
+          $("dayDate").textContent = "Business date: " + businessDate;
+          const hasBusinessWindow =
+            Boolean(data.businessDayWindow?.startLocal) && Boolean(data.businessDayWindow?.endLocal);
+          const dayWindowText = hasBusinessWindow
+            ? (data.businessDayWindow.startLocal + " .. " + data.businessDayWindow.endLocal + " (" + (data.timeZone || "-") + ")")
+            : ("Defined by Lightspeed business day setup (" + (data.timeZone || "-") + ")");
           $("dayWindow").textContent = "Window: " + dayWindowText;
           $("noteTz").textContent = data.timeZone || "-";
+          $("noteSource").textContent = data.businessDayWindow?.basedOnBusinessLocationId
+            ? ("BLID " + data.businessDayWindow.basedOnBusinessLocationId)
+            : "API metadata unavailable";
           $("noteWindow").textContent = dayWindowText;
           $("weekNet").textContent = fmt(data.week?.totalNetRevenue);
           $("weekGross").textContent = "Gross: " + val(data.week?.totalGrossRevenue);
