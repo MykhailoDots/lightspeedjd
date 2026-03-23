@@ -1,0 +1,5 @@
+bun.lock
+.lightspeed-token-*.json
+.lightspeed-web*.log
+.lightspeed-web*.pid
+application.log

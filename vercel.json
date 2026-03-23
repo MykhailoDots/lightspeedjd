@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm install",
+  "functions": {
+    "api/revenue.ts": {
+      "maxDuration": 60
+    }
+  }
+}
