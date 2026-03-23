@@ -496,6 +496,17 @@ const resolveBusinessLocations = async (
     locations = locations.filter((l) => wanted.has(Number(l.id)));
   }
 
+  // If discovery endpoint responded but yielded no matching locations,
+  // fall back to explicitly configured IDs.
+  if (!locations.length && config.businessLocationIds?.length) {
+    locations = config.businessLocationIds.map((id) => ({ id: Number(id) }));
+    logger.info(
+      `[${config.name}] Falling back to configured businessLocationIds: ${locations
+        .map((l) => l.id)
+        .join(", ")}`
+    );
+  }
+
   if (!locations.length) {
     throw new Error(
       `[${config.name}] No business locations resolved. Provide businessLocationIds or ensure the token can access /f/data/businesses.`

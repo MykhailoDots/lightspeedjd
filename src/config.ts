@@ -8,6 +8,7 @@ import { appConfigRemimag } from "./configs/remimag";
 import { appConfigTibits } from "./configs/tibits";
 import { appConfigKusch } from "./configs/kusch";
 import { appConfigSeerose } from "./configs/seerose";
+import { appConfigLightspeedExample } from "./configs/lightspeed-example";
 
 export function getEnvVar(name: string, isOptional = false): string {
   const value = process.env[name];
@@ -52,6 +53,8 @@ export function getAppConfig() {
     case "kusch":
     case "Kusch":
       return appConfigKusch;
+    case "lightspeed-example":
+      return appConfigLightspeedExample;
     default:
       throw new Error(`Unknown config file: ${configFile}`);
   }
